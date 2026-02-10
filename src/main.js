@@ -96,8 +96,7 @@ const init = () => {
             }
         }
     };
-    // default template
-    const defaultInput = `# Lectr Markdown guide
+    const defaultInputEn = `# Lectr Markdown guide
 
 ## Headers
 
@@ -167,6 +166,79 @@ ${"`"}${"`"}${"`"}
 
 This web site is using ${"`"}markedjs/marked${"`"}.
 `;
+
+    const defaultInputRu = `# Гайд по Markdown в Lectr
+
+## Заголовки
+
+# Это заголовок h1
+## Это заголовок h2
+###### Это заголовок h6
+
+## Выделение текста
+
+*Этот текст будет курсивом*  
+_Этот текст тоже будет курсивом_
+
+**Этот текст будет жирным**  
+__Этот текст тоже будет жирным__
+
+_Можно **комбинировать** стили_
+
+## Списки
+
+### Маркированный
+
+* Пункт 1
+* Пункт 2
+* Пункт 2a
+* Пункт 2b
+    * Пункт 3a
+    * Пункт 3b
+
+### Нумерованный
+
+1. Пункт 1
+2. Пункт 2
+3. Пункт 3
+    1. Пункт 3a
+    2. Пункт 3b
+
+## Изображения
+
+![Пример alt-текста](image/Markdown-mark.svg "Пример изображения")
+
+## Ссылки
+
+Пишите документацию в **Lectr** с помощью Markdown.
+
+## Цитаты
+
+> Markdown — легковесный язык разметки с простым текстовым синтаксисом.
+>
+>> Его часто используют для README, заметок и сообщений на форумах.
+
+## Таблицы
+
+| Левый столбец | Правый столбец |
+| ------------- |:--------------:|
+| левый foo     | правый foo     |
+| левый bar     | правый bar     |
+| левый baz     | правый baz     |
+
+## Блок кода
+
+${"`"}${"`"}${"`"}
+let message = 'Привет, мир';
+alert(message);
+${"`"}${"`"}${"`"}
+
+## Встроенный код
+
+На этом сайте используется ${"`"}markedjs/marked${"`"}.
+`;
+
+    const getDefaultInput = () => (currentLanguage === 'ru' ? defaultInputRu : defaultInputEn);
 
     const getFileNameFromPath = (filePath) => {
         if (!filePath) {
@@ -391,12 +463,13 @@ This web site is using ${"`"}markedjs/marked${"`"}.
                 return;
             }
         }
+        const resetContent = getDefaultInput();
         if (activeTab) {
-            activeTab.content = defaultInput;
+            activeTab.content = resetContent;
             activeTab.dirty = activeTab.content !== activeTab.lastSavedContent;
             renderTabs();
         }
-        presetValue(defaultInput);
+        presetValue(resetContent);
         document.querySelectorAll('.column').forEach((element) => {
             element.scrollTo({ top: 0 });
         });
@@ -691,7 +764,6 @@ This web site is using ${"`"}markedjs/marked${"`"}.
             tabElement.className = `tab-item${tab.id === activeTabId ? ' active' : ''}${tab.dirty ? ' dirty' : ''}`;
             tabElement.setAttribute('data-tab-id', tab.id);
             tabElement.setAttribute('title', tab.filePath || tab.title);
-            tabElement.setAttribute('draggable', 'true');
 
             const title = document.createElement('span');
             title.className = 'tab-title';
@@ -740,6 +812,14 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         return tab;
     };
 
+    let moveTab = (fromIndex, toIndex) => {
+        if (fromIndex < 0 || toIndex < 0 || fromIndex >= tabs.length || toIndex >= tabs.length || fromIndex === toIndex) {
+            return;
+        }
+        const [tab] = tabs.splice(fromIndex, 1);
+        tabs.splice(toIndex, 0, tab);
+    };
+
     let closeTab = async (tabId, editor) => {
         const tab = tabs.find((item) => item.id === tabId);
         if (!tab) {
@@ -773,7 +853,7 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         tabs.splice(closingIndex, 1);
 
         if (tabs.length === 0) {
-            createUntitledTab(defaultInput);
+            createUntitledTab(getDefaultInput());
             return;
         }
 
@@ -788,7 +868,175 @@ This web site is using ${"`"}markedjs/marked${"`"}.
 
     let setupTabsUi = (editor) => {
         const tabsList = document.querySelector('#tabs-list');
-        let dragTabId = null;
+        const dragState = {
+            pointerId: null,
+            tabId: null,
+            tabElement: null,
+            pointerOffsetX: 0,
+            translateX: 0,
+            started: false
+        };
+
+        const clearReorderStyles = () => {
+            if (!tabsList) {
+                return;
+            }
+            tabsList.querySelectorAll('.tab-item').forEach((element) => {
+                element.classList.remove('reorder-anim');
+                if (!element.classList.contains('dragging-pointer')) {
+                    element.style.transform = '';
+                }
+            });
+        };
+
+        const animateReorder = (beforeLeftMap) => {
+            if (!tabsList) {
+                return;
+            }
+            const afterElements = Array.from(tabsList.querySelectorAll('.tab-item'));
+            afterElements.forEach((element) => {
+                if (element === dragState.tabElement) {
+                    return;
+                }
+                const tabId = element.getAttribute('data-tab-id');
+                if (!tabId || !beforeLeftMap.has(tabId)) {
+                    return;
+                }
+                const previousLeft = beforeLeftMap.get(tabId);
+                const nextLeft = element.getBoundingClientRect().left;
+                const deltaX = previousLeft - nextLeft;
+                if (Math.abs(deltaX) < 0.5) {
+                    return;
+                }
+
+                element.classList.add('reorder-anim');
+                element.style.transform = `translateX(${deltaX}px)`;
+                requestAnimationFrame(() => {
+                    element.style.transform = 'translateX(0)';
+                });
+            });
+        };
+
+        const reorderByPointer = () => {
+            if (!tabsList || !dragState.tabElement || !dragState.tabId) {
+                return;
+            }
+
+            const items = Array.from(tabsList.querySelectorAll('.tab-item'));
+            const dragged = dragState.tabElement;
+            const currentIndex = tabs.findIndex((tab) => tab.id === dragState.tabId);
+            if (currentIndex === -1) {
+                return;
+            }
+
+            const draggedRect = dragged.getBoundingClientRect();
+            const draggedCenter = draggedRect.left + draggedRect.width / 2;
+            const withoutDragged = items.filter((element) => element !== dragged);
+
+            let insertIndex = withoutDragged.length;
+            for (let index = 0; index < withoutDragged.length; index += 1) {
+                const element = withoutDragged[index];
+                const rect = element.getBoundingClientRect();
+                const center = rect.left + rect.width / 2;
+                if (draggedCenter < center) {
+                    insertIndex = index;
+                    break;
+                }
+            }
+
+            const targetIndex = Math.min(tabs.length - 1, insertIndex);
+            if (targetIndex === currentIndex) {
+                return;
+            }
+
+            const beforeLeftMap = new Map();
+            items.forEach((element) => {
+                const tabId = element.getAttribute('data-tab-id');
+                if (tabId) {
+                    beforeLeftMap.set(tabId, element.getBoundingClientRect().left);
+                }
+            });
+
+            moveTab(currentIndex, targetIndex);
+
+            const nextTab = tabs[targetIndex + 1];
+            if (nextTab) {
+                const nextElement = tabsList.querySelector(`[data-tab-id="${nextTab.id}"]`);
+                if (nextElement) {
+                    tabsList.insertBefore(dragged, nextElement);
+                }
+            } else {
+                tabsList.appendChild(dragged);
+            }
+
+            animateReorder(beforeLeftMap);
+            schedulePersistTabsState();
+        };
+
+        const beginDrag = (event, tabElement) => {
+            if (!tabsList || dragState.tabElement) {
+                return;
+            }
+            if (event.button !== 0 || !tabElement) {
+                return;
+            }
+
+            const tabId = tabElement.getAttribute('data-tab-id');
+            if (!tabId) {
+                return;
+            }
+
+            const rect = tabElement.getBoundingClientRect();
+            dragState.pointerId = event.pointerId;
+            dragState.tabId = tabId;
+            dragState.tabElement = tabElement;
+            dragState.pointerOffsetX = event.clientX - rect.left;
+            dragState.translateX = 0;
+            dragState.started = true;
+
+            tabElement.classList.add('dragging-pointer');
+            tabElement.setPointerCapture(event.pointerId);
+            document.body.classList.add('tabs-dragging');
+        };
+
+        const updateDrag = (event) => {
+            if (!tabsList || !dragState.started || dragState.pointerId !== event.pointerId || !dragState.tabElement) {
+                return;
+            }
+
+            const dragged = dragState.tabElement;
+            const rect = dragged.getBoundingClientRect();
+            const desiredLeft = event.clientX - dragState.pointerOffsetX;
+            const deltaX = desiredLeft - rect.left;
+            dragState.translateX += deltaX;
+            dragged.style.transform = `translateX(${dragState.translateX}px)`;
+
+            reorderByPointer();
+        };
+
+        const endDrag = (event) => {
+            if (!dragState.started || dragState.pointerId !== event.pointerId) {
+                return;
+            }
+
+            if (dragState.tabElement) {
+                dragState.tabElement.classList.remove('dragging-pointer');
+                dragState.tabElement.style.transform = '';
+                if (dragState.tabElement.hasPointerCapture(event.pointerId)) {
+                    dragState.tabElement.releasePointerCapture(event.pointerId);
+                }
+            }
+
+            dragState.pointerId = null;
+            dragState.tabId = null;
+            dragState.tabElement = null;
+            dragState.pointerOffsetX = 0;
+            dragState.translateX = 0;
+            dragState.started = false;
+            document.body.classList.remove('tabs-dragging');
+            clearReorderStyles();
+        };
+
         if (tabsList) {
             tabsList.addEventListener('click', async (event) => {
                 const closeTarget = event.target.closest('[data-tab-close]');
@@ -811,60 +1059,32 @@ This web site is using ${"`"}markedjs/marked${"`"}.
                 }
             });
 
-            tabsList.addEventListener('dragstart', (event) => {
+            tabsList.addEventListener('pointerdown', (event) => {
+                const closeTarget = event.target.closest('[data-tab-close]');
+                if (closeTarget) {
+                    return;
+                }
                 const tabTarget = event.target.closest('[data-tab-id]');
                 if (!tabTarget) {
                     return;
                 }
-                dragTabId = tabTarget.getAttribute('data-tab-id');
-                tabTarget.classList.add('dragging');
-                if (event.dataTransfer) {
-                    event.dataTransfer.effectAllowed = 'move';
-                    event.dataTransfer.setData('text/plain', dragTabId || '');
-                }
+                beginDrag(event, tabTarget);
             });
 
-            tabsList.addEventListener('dragover', (event) => {
-                const dropTarget = event.target.closest('[data-tab-id]');
-                if (!dropTarget || !dragTabId) {
-                    return;
-                }
+            tabsList.addEventListener('pointermove', (event) => {
+                updateDrag(event);
+            });
+
+            tabsList.addEventListener('pointerup', (event) => {
+                endDrag(event);
+            });
+
+            tabsList.addEventListener('pointercancel', (event) => {
+                endDrag(event);
+            });
+
+            tabsList.addEventListener('dragstart', (event) => {
                 event.preventDefault();
-            });
-
-            tabsList.addEventListener('drop', (event) => {
-                const dropTarget = event.target.closest('[data-tab-id]');
-                if (!dropTarget || !dragTabId) {
-                    return;
-                }
-                event.preventDefault();
-                const targetTabId = dropTarget.getAttribute('data-tab-id');
-                if (!targetTabId || targetTabId === dragTabId) {
-                    return;
-                }
-
-                const dragIndex = tabs.findIndex((tab) => tab.id === dragTabId);
-                const targetIndex = tabs.findIndex((tab) => tab.id === targetTabId);
-                if (dragIndex === -1 || targetIndex === -1) {
-                    return;
-                }
-
-                const targetRect = dropTarget.getBoundingClientRect();
-                const insertAfter = event.clientX > targetRect.left + targetRect.width / 2;
-                const [dragged] = tabs.splice(dragIndex, 1);
-                let insertIndex = tabs.findIndex((tab) => tab.id === targetTabId);
-                if (insertAfter) {
-                    insertIndex += 1;
-                }
-                tabs.splice(insertIndex, 0, dragged);
-                renderTabs();
-            });
-
-            tabsList.addEventListener('dragend', () => {
-                dragTabId = null;
-                tabsList.querySelectorAll('.tab-item.dragging').forEach((element) => {
-                    element.classList.remove('dragging');
-                });
             });
         }
 
@@ -1050,6 +1270,15 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         return fallbackSaveFile(content, suggestedName);
     };
 
+    let saveActiveTabWithMode = async (editor, forceDialog) => {
+        const activeTab = getActiveTab();
+        if (!activeTab) {
+            return { saved: false };
+        }
+        syncActiveTabFromEditor(editor);
+        return saveTab(activeTab, { forceDialog, showToast: true });
+    };
+
     let setupOpenButton = () => {
         const openButton = document.querySelector('#open-file-button');
         if (!openButton) {
@@ -1106,8 +1335,7 @@ This web site is using ${"`"}markedjs/marked${"`"}.
                 closeOpenMenus();
                 return;
             }
-            syncActiveTabFromEditor(editor);
-            await saveTab(activeTab, { forceDialog: false, showToast: true });
+            await saveActiveTabWithMode(editor, false);
             closeOpenMenus();
         });
     };
@@ -1125,9 +1353,55 @@ This web site is using ${"`"}markedjs/marked${"`"}.
                 closeOpenMenus();
                 return;
             }
-            syncActiveTabFromEditor(editor);
-            await saveTab(activeTab, { forceDialog: true, showToast: true });
+            await saveActiveTabWithMode(editor, true);
             closeOpenMenus();
+        });
+    };
+
+    let setupGlobalShortcuts = (editor) => {
+        const isEditableField = (target) => {
+            if (!(target instanceof HTMLElement)) {
+                return false;
+            }
+            if (target.isContentEditable) {
+                return true;
+            }
+            const tagName = target.tagName.toLowerCase();
+            return tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+        };
+
+        document.addEventListener('keydown', async (event) => {
+            const isMod = event.ctrlKey || event.metaKey;
+            if (!isMod) {
+                return;
+            }
+
+            const key = event.key.toLowerCase();
+            const target = event.target;
+            const editableField = isEditableField(target);
+
+            if (key === 's') {
+                event.preventDefault();
+                await saveActiveTabWithMode(editor, event.shiftKey);
+                return;
+            }
+
+            if (key === 'w') {
+                event.preventDefault();
+                const activeTab = getActiveTab();
+                if (activeTab) {
+                    await closeTab(activeTab.id, editor);
+                }
+                return;
+            }
+
+            if (key === 't' && !event.shiftKey) {
+                if (editableField) {
+                    return;
+                }
+                event.preventDefault();
+                createUntitledTab('');
+            }
         });
     };
 
@@ -1471,6 +1745,21 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Digit8, () => withUndoStop(handlers.ul));
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Digit7, () => withUndoStop(handlers.ol));
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Period, () => withUndoStop(handlers.quote));
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+            void saveActiveTabWithMode(editor, false);
+        });
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyS, () => {
+            void saveActiveTabWithMode(editor, true);
+        });
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyW, () => {
+            const activeTab = getActiveTab();
+            if (activeTab) {
+                void closeTab(activeTab.id, editor);
+            }
+        });
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyT, () => {
+            createUntitledTab('');
+        });
     };
 
     // ----- local state -----
@@ -1667,7 +1956,7 @@ This web site is using ${"`"}markedjs/marked${"`"}.
             return;
         }
 
-        const fallback = versionElement.textContent ? versionElement.textContent.trim() : 'v1.0.0';
+        const fallback = versionElement.textContent ? versionElement.textContent.trim() : 'v1.0.1';
         versionElement.textContent = fallback.startsWith('v') ? fallback : `v${fallback}`;
 
         if (!window.lectrDesktop || typeof window.lectrDesktop.getAppVersion !== 'function') {
@@ -1826,12 +2115,12 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         activeTabId = restoredIdMap.get(savedTabsState.activeTabId)
             || (tabs[0] ? tabs[0].id : null);
         const activeTab = getActiveTab();
-        const restoredContent = activeTab ? activeTab.content : defaultInput;
+        const restoredContent = activeTab ? activeTab.content : getDefaultInput();
         renderTabs();
         presetValue(restoredContent);
         saveLastContent(restoredContent);
     } else {
-        const initialContent = lastContent || defaultInput;
+        const initialContent = lastContent || getDefaultInput();
         const initialTab = createTab({
             title: getUntitledTitle(1),
             content: initialContent,
@@ -1854,6 +2143,7 @@ This web site is using ${"`"}markedjs/marked${"`"}.
     setupCopyButton(editor);
     setupExportButton();
     setupFormatToolbar(editor);
+    setupGlobalShortcuts(editor);
 
     let scrollBarSettings = loadScrollBarSettings() || false;
     initScrollBarSync(scrollBarSettings);

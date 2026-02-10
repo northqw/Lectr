@@ -265,7 +265,7 @@ header a:link, header a:hover, header a:visited, header a:active {
   overflow-y: hidden;
   gap: 0;
   flex: 1;
-  padding-bottom: 1px;
+  padding-bottom: 0;
   scrollbar-width: thin;
 }
 
@@ -278,9 +278,11 @@ header a:link, header a:hover, header a:visited, header a:active {
   background: var(--tab-fill);
   color: #c7d7e2;
   border: 1px solid var(--tab-border);
-  border-bottom: 0;
+  border-bottom-color: transparent;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
   margin-right: 4px;
   margin-bottom: -1px;
   display: flex;
@@ -289,32 +291,14 @@ header a:link, header a:hover, header a:visited, header a:active {
   box-sizing: border-box;
   cursor: pointer;
   position: relative;
+  transition: background-color 0.16s ease, color 0.16s ease;
+  will-change: transform;
+  overflow: hidden;
 }
 
 .tab-item::before,
 .tab-item::after {
-  content: "";
-  position: absolute;
-  bottom: -1px;
-  width: 12px;
-  height: 12px;
-  background: transparent;
-}
-
-.tab-item::before {
-  left: -12px;
-  border-bottom-right-radius: 12px;
-  box-shadow:
-    0 4px 0 0 var(--tab-fill),
-    0 4px 0 1px var(--tab-border);
-}
-
-.tab-item::after {
-  right: -12px;
-  border-bottom-left-radius: 12px;
-  box-shadow:
-    0 4px 0 0 var(--tab-fill),
-    0 4px 0 1px var(--tab-border);
+  content: none;
 }
 
 .tab-item:hover {
@@ -329,6 +313,21 @@ header a:link, header a:hover, header a:visited, header a:active {
 
 .tab-item.dragging {
   opacity: 0.55;
+}
+
+.tab-item.dragging-pointer {
+  z-index: 20;
+  transition: none;
+  cursor: grabbing;
+}
+
+.tab-item.reorder-anim {
+  transition: transform 0.16s cubic-bezier(0.2, 0.0, 0.2, 1);
+}
+
+body.tabs-dragging,
+body.tabs-dragging * {
+  user-select: none !important;
 }
 
 .tab-title {
