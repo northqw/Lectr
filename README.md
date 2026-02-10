@@ -1,4 +1,6 @@
-# Lectr
+# ![Lectr logo.](public/image/lectr-logo.svg "Lectr logo.")
+
+
 
 RU | [EN](#lectr-en)
 
