@@ -1,0 +1,5 @@
+<svg width="140" height="32" viewBox="0 0 140 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="1" y="1" width="30" height="30" rx="8" fill="#151922"/>
+  <path d="M10 9H14V21H22V24H10V9Z" fill="#6CE5BD"/>
+  <text x="40" y="22" fill="#E6EDF3" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="0.3">Lectr</text>
+</svg>

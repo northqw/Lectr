@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta http-equiv="content-language" content="en">
+    <meta http-equiv="content-script-type" content="text/javascript">
+    <meta http-equiv="content-style-type" content="text/css">
+    <meta name="description" content="This is the online markdown editor with live preview.">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+    >
+
+    <script>
+      (function(){
+        try {
+          var BOOT_THEME_KEY = 'com.lectr_theme';
+          var raw = localStorage.getItem(BOOT_THEME_KEY);
+          var useDark = raw === 'dark';
+          document.documentElement.setAttribute('data-theme', useDark ? 'dark' : 'light');
+
+          var PREVIEW_CSS_LIGHT = 'css/github-markdown-light.css?v=1.11.0';
+          var PREVIEW_CSS_DARK = 'css/github-markdown-dark_dimmed.css?v=1.11.0';
+          var href = useDark ? PREVIEW_CSS_DARK : PREVIEW_CSS_LIGHT;
+
+          var link = document.createElement('link');
+          link.id = 'gh-markdown-link';
+          link.rel = 'stylesheet';
+          link.type = 'text/css';
+          link.href = href;
+          document.head.appendChild(link);
+        } catch (e) {
+          // ignore — app will correct theme after load
+        }
+      })();
+    </script>
+    <link rel="stylesheet" type="text/css" href="css/style.css?v=1.11.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script type="module" src="./src/main.js?v=1.11.0"></script>
+    <title>Lectr</title>
+  </head>
+
+  <body>
+
+    <header>
+        <div id="header-content">
+            <div id="brand">
+              <a href="./" aria-label="Lectr home">
+                <img src="image/lectr-logo.svg" alt="Lectr">
+              </a>
+              <span id="app-version" aria-label="Application version">v1.0.0</span>
+            </div>
+
+            <div id="format-toolbar" aria-label="Formatting">
+              <button type="button" class="format-button" data-format="bold" title="Bold" aria-label="Bold">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h7a4 4 0 0 1 0 8H7V4zm0 8h8a4 4 0 0 1 0 8H7v-8z"/></svg>
+              </button>
+              <button type="button" class="format-button" data-format="italic" title="Italic" aria-label="Italic">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v2h-4l-4 12h4v2H6v-2h4l4-12h-4V4z"/></svg>
+              </button>
+              <button type="button" class="format-button" data-format="strikethrough" title="Strikethrough" aria-label="Strikethrough">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h16v2H4v-2zm3-4a4.5 4.5 0 0 1 8.6-1.9l-1.8.8A2.5 2.5 0 0 0 9 7h6a4 4 0 0 1 0 8H9a4.4 4.4 0 0 1-3.9-2.3l1.8-1A2.4 2.4 0 0 0 9 13h6a2 2 0 0 0 0-4H7z"/></svg>
+              </button>
+              <button type="button" class="format-button" data-format="code" title="Inline code" aria-label="Inline code">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.4 7.3L3.7 12l4.7 4.7 1.4-1.4L6.5 12l3.3-3.3-1.4-1.4zm7.2 0l-1.4 1.4 3.3 3.3-3.3 3.3 1.4 1.4 4.7-4.7-4.7-4.7zM13.4 4l-4 16h1.9l4-16h-1.9z"/></svg>
+              </button>
+              <button type="button" class="format-button" data-format="h1" title="Heading 1" aria-label="Heading 1">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h2v6h6V5h2v14h-2v-6H5v6H3V5zm14 5h-2V8h4v11h-2v-9z"/></svg>
+              </button>
+              <button type="button" class="format-button" data-format="h2" title="Heading 2" aria-label="Heading 2">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h2v6h6V5h2v14h-2v-6H5v6H3V5zm12.2 2.3A2.3 2.3 0 0 1 17.4 6h1.2A3.4 3.4 0 0 1 22 9.4c0 1.4-.7 2.3-1.8 3.1l-2.3 1.7c-.6.4-.9.8-1 1.2H22V18h-7.4v-1.3c0-1.8.7-3.2 2.4-4.4l1.9-1.4c.7-.5 1-.9 1-1.5a1.4 1.4 0 0 0-2.8 0v.4h-1.9v-.5z"/></svg>
+              </button>
+              <button type="button" class="format-button" data-format="ul" title="Unordered list" aria-label="Unordered list">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7a1.5 1.5 0 1 0 0 .01V7zm0 5a1.5 1.5 0 1 0 0 .01V12zm0 5a1.5 1.5 0 1 0 0 .01V17zM8 6h12v2H8V6zm0 5h12v2H8v-2zm0 5h12v2H8v-2z"/></svg>
+              </button>
+              <button type="button" class="format-button" data-format="ol" title="Ordered list" aria-label="Ordered list">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h2v6H3V6zm1 8a2 2 0 0 1 2 2c0 .7-.3 1.3-1 1.8l-.7.5H6V20H3v-1.1l1.5-1.1c.4-.3.5-.5.5-.8a.9.9 0 0 0-1.8 0H2a2 2 0 0 1 2-2zm6-8h11v2H10V6zm0 5h11v2H10v-2zm0 5h11v2H10v-2z"/></svg>
+              </button>
+              <button type="button" class="format-button" data-format="quote" title="Quote" aria-label="Quote">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6zm2 5h5v7H6v-7zm9 0h5v7h-5v-7zm-8 2v3h2v-3H7zm9 0v3h2v-3h-2z"/></svg>
+              </button>
+              <button type="button" class="format-button" data-format="link" title="Link" aria-label="Link">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 13.4a1 1 0 0 1 0-1.4l3.8-3.8a3 3 0 1 1 4.2 4.2l-2.3 2.3-1.4-1.4 2.3-2.3a1 1 0 1 0-1.4-1.4L12 13.4a1 1 0 0 1-1.4 0zM13.4 10.6a1 1 0 0 1 0 1.4l-3.8 3.8a3 3 0 1 1-4.2-4.2l2.3-2.3 1.4 1.4-2.3 2.3a1 1 0 1 0 1.4 1.4l3.8-3.8a1 1 0 0 1 1.4 0z"/></svg>
+              </button>
+            </div>
+
+            <div id="app-menus">
+              <div class="menu" data-menu="file">
+                <button type="button" class="menu-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="file-menu-panel">
+                  <svg class="menu-trigger-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v2H4V7zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
+                  <span id="file-menu-label">File</span>
+                </button>
+                <div class="menu-panel" id="file-menu-panel" role="menu">
+                  <button type="button" id="open-file-button" class="menu-item" role="menuitem">Open...</button>
+                  <button type="button" id="save-file-button" class="menu-item" role="menuitem">Save</button>
+                  <button type="button" id="save-as-file-button" class="menu-item" role="menuitem">Save As...</button>
+                  <button type="button" id="copy-button" class="menu-item" role="menuitem">Copy</button>
+                  <button type="button" id="export-button" class="menu-item" role="menuitem">Export to PDF</button>
+                  <button type="button" id="reset-button" class="menu-item danger" role="menuitem">Reset</button>
+                </div>
+              </div>
+
+              <div class="menu" data-menu="settings">
+                <button type="button" class="menu-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="settings-menu-panel">
+                  <svg class="menu-trigger-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v2H4V7zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
+                  <span id="settings-menu-label">Settings</span>
+                </button>
+                <div class="menu-panel" id="settings-menu-panel" role="menu">
+                  <label class="menu-item checkbox-item" role="menuitemcheckbox" for="sync-scroll-checkbox">
+                    <input type="checkbox" id="sync-scroll-checkbox">
+                    <span id="sync-scroll-label">Sync scroll</span>
+                  </label>
+                  <label class="menu-item checkbox-item" role="menuitemcheckbox" for="theme-checkbox">
+                    <input type="checkbox" id="theme-checkbox">
+                    <span id="theme-label">Dark mode</span>
+                  </label>
+                  <label class="menu-item select-item" for="language-select">
+                    <span id="language-label">Language</span>
+                    <select id="language-select">
+                      <option value="en">English</option>
+                      <option value="ru">Русский</option>
+                    </select>
+                  </label>
+                  <label class="menu-item select-item" for="ui-zoom-select">
+                    <span id="zoom-label">Scale</span>
+                    <select id="ui-zoom-select">
+                      <option value="80">80%</option>
+                      <option value="90">90%</option>
+                      <option value="100">100%</option>
+                      <option value="110">110%</option>
+                      <option value="120">120%</option>
+                      <option value="130">130%</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
+        </div>
+    </header>
+
+    <div id="tabs-bar" aria-label="Open files">
+      <div id="tabs-list"></div>
+      <button type="button" id="new-tab-button" aria-label="New tab" title="New tab">+</button>
+    </div>
+
+    <div id="container" class="split-container">
+
+        <div id="edit" class="column editor-pane">
+            <div id="editor-wrapper">
+                <div id="editor"></div>
+            </div>
+        </div>
+
+        <div id="split-divider" class="split-divider"></div>
+
+        <div id="preview" class="column preview-pane">
+            <div id="preview-wrapper">
+                <div id="output" class="content markdown-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer></footer>
+  </body>
+</html>
