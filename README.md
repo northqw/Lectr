@@ -8,6 +8,10 @@ RU | [EN](#lectr-en)
 
 Lectr — Markdown-редактор с live preview и desktop-режимом на Electron.
 
+  | Темная тема | Светлая тема | Редактирование на рендере |
+  |---|---|---|
+  | ![Dark theme](docs/screenshots/dark-theme.png) | ![Light theme](docs/screenshots/light-theme.png) | ![Edit in preview mode](docs/screenshots/edit-in-preview-mode.png) |
+
 ### Возможности
 
 - Редактор + рендер Markdown в реальном времени
@@ -63,6 +67,10 @@ MIT. Подробнее в `LICENSE`.
 ## Lectr EN
 
 Lectr is a Markdown editor with live preview and Electron desktop packaging.
+
+  | Dark theme | Light theme | Edit in preview mode |
+  |---|---|---|
+  | ![Dark theme](docs/screenshots/dark-theme.png) | ![Light theme](docs/screenshots/light-theme.png) | ![Edit in preview mode](docs/screenshots/edit-in-preview-mode.png) |
 
 ### Features
 
