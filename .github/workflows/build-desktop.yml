@@ -40,16 +40,40 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            npx electron-builder --linux --publish never
+            npx electron-builder --linux AppImage --publish never
           elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            npx electron-builder --win --publish never
+            npx electron-builder --win nsis --publish never
           else
-            npx electron-builder --mac --publish never
+            npx electron-builder --mac dmg --publish never
+          fi
+
+      - name: Collect distributables only
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          shopt -s nullglob
+
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            files=(release/*.AppImage release/*.deb release/*.rpm release/*.snap release/*.tar.gz)
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            files=(release/*.exe release/*.msi release/*.zip)
+          else
+            files=(release/*.dmg release/*.pkg release/*.zip)
+          fi
+
+          for file in "${files[@]}"; do
+            cp -v "$file" artifacts/
+          done
+
+          if [ -z "$(ls -A artifacts 2>/dev/null)" ]; then
+            echo "No distributable files were found in release/"
+            exit 1
           fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: lectr-${{ matrix.os }}
-          path: release/**
+          path: artifacts/**
+          compression-level: 9
           if-no-files-found: error
