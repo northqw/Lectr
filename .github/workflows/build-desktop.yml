@@ -1,0 +1,55 @@
+name: Build Desktop Apps
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Build desktop package
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            npx electron-builder --linux --publish never
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            npx electron-builder --win --publish never
+          else
+            npx electron-builder --mac --publish never
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lectr-${{ matrix.os }}
+          path: release/**
+          if-no-files-found: error
