@@ -19,8 +19,8 @@
           var useDark = raw === 'dark';
           document.documentElement.setAttribute('data-theme', useDark ? 'dark' : 'light');
 
-          var PREVIEW_CSS_LIGHT = 'css/github-markdown-light.css?v=1.11.0';
-          var PREVIEW_CSS_DARK = 'css/github-markdown-dark_dimmed.css?v=1.11.0';
+          var PREVIEW_CSS_LIGHT = 'css/github-markdown-light.css';
+          var PREVIEW_CSS_DARK = 'css/github-markdown-dark_dimmed.css';
           var href = useDark ? PREVIEW_CSS_DARK : PREVIEW_CSS_LIGHT;
 
           var link = document.createElement('link');
@@ -34,10 +34,10 @@
         }
       })();
     </script>
-    <link rel="stylesheet" type="text/css" href="css/style.css?v=1.11.0">
+    <link rel="stylesheet" type="text/css" href="css/style.css">
     <link rel="icon" type="image/png" href="favicon.png">
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script type="module" src="./src/main.js?v=1.11.0"></script>
+    <script type="module" src="./src/main.js"></script>
     <title>Lectr</title>
   </head>
 
@@ -46,10 +46,10 @@
     <header>
         <div id="header-content">
             <div id="brand">
-              <a href="./" aria-label="Lectr home">
-                <img src="image/lectr-logo.svg" alt="Lectr">
-              </a>
-              <span id="app-version" aria-label="Application version">v1.0.1</span>
+              <button type="button" id="brand-button" aria-label="About Lectr">
+                <img class="brand-logo brand-logo-light" src="image/lectr-logo-light.svg" alt="Lectr">
+                <img class="brand-logo brand-logo-dark" src="image/lectr-logo-dark.svg" alt="Lectr">
+              </button>
             </div>
 
             <div id="format-toolbar" aria-label="Formatting">
@@ -107,13 +107,19 @@
                   <span id="settings-menu-label">Settings</span>
                 </button>
                 <div class="menu-panel" id="settings-menu-panel" role="menu">
-                  <label class="menu-item checkbox-item" role="menuitemcheckbox" for="sync-scroll-checkbox">
-                    <input type="checkbox" id="sync-scroll-checkbox">
-                    <span id="sync-scroll-label">Sync scroll</span>
-                  </label>
-                  <label class="menu-item checkbox-item" role="menuitemcheckbox" for="theme-checkbox">
-                    <input type="checkbox" id="theme-checkbox">
+                  <label class="menu-item switch-item" role="menuitemcheckbox" for="theme-checkbox">
                     <span id="theme-label">Dark mode</span>
+                    <span class="switch-control">
+                      <input type="checkbox" id="theme-checkbox">
+                      <span class="switch-slider" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <label class="menu-item switch-item" role="menuitemcheckbox" for="preview-edit-checkbox">
+                    <span id="preview-edit-label">Edit preview</span>
+                    <span class="switch-control">
+                      <input type="checkbox" id="preview-edit-checkbox">
+                      <span class="switch-slider" aria-hidden="true"></span>
+                    </span>
                   </label>
                   <label class="menu-item select-item" for="language-select">
                     <span id="language-label">Language</span>
@@ -162,5 +168,86 @@
     </div>
 
     <footer></footer>
+
+    <div id="about-overlay" class="about-overlay" aria-hidden="true" hidden>
+      <div class="about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title">
+        <button type="button" id="about-close-button" class="about-close-button" aria-label="Close">×</button>
+        <div class="about-logo-wrap" aria-hidden="true">
+          <img class="about-logo about-logo-light" src="image/lectr-logo-light.svg" alt="">
+          <img class="about-logo about-logo-dark" src="image/lectr-logo-dark.svg" alt="">
+        </div>
+        <h2 id="about-title">About Lectr</h2>
+        <dl class="about-info-list">
+          <div class="about-info-row">
+            <dt id="about-version-label">Version</dt>
+            <dd id="about-version-value">v1.0.1</dd>
+          </div>
+          <div class="about-info-row">
+            <dt id="about-developer-label">Developer</dt>
+            <dd id="about-developer-value">northqw.</dd>
+          </div>
+          <div class="about-info-row">
+            <dt id="about-repo-label">Repository</dt>
+            <dd>
+              <a id="about-repo-link" href="https://github.com/northqw/lectr" target="_blank" rel="noopener noreferrer">GitHub</a>
+            </dd>
+          </div>
+          <div class="about-info-row">
+            <dt id="about-license-label">License</dt>
+            <dd id="about-license-value">MIT</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <div id="onboarding-overlay" class="onboarding-overlay" aria-hidden="true" hidden>
+      <div class="onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+        <h2 id="onboarding-title">Set up Lectr</h2>
+        <p id="onboarding-step-label">Step 1 of 3</p>
+
+        <section class="onboarding-step active" data-onboarding-step="0">
+          <h3 id="onboarding-language-title">Choose language</h3>
+          <div class="onboarding-options">
+            <button type="button" class="onboarding-option" data-onboarding-language="en">
+              <span id="onboarding-language-en-label">English</span>
+            </button>
+            <button type="button" class="onboarding-option" data-onboarding-language="ru">
+              <span id="onboarding-language-ru-label">Русский</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="onboarding-step" data-onboarding-step="1">
+          <h3 id="onboarding-mode-title">Choose mode</h3>
+          <div class="onboarding-options">
+            <button type="button" class="onboarding-option" data-onboarding-mode="advanced">
+              <span class="onboarding-option-title" id="onboarding-mode-advanced-label">Advanced</span>
+              <span class="onboarding-option-description" id="onboarding-mode-advanced-description">Raw markdown editor</span>
+            </button>
+            <button type="button" class="onboarding-option" data-onboarding-mode="simple">
+              <span class="onboarding-option-title" id="onboarding-mode-simple-label">Simple (Experimental)</span>
+              <span class="onboarding-option-description" id="onboarding-mode-simple-description">Edit directly in preview</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="onboarding-step" data-onboarding-step="2">
+          <h3 id="onboarding-theme-title">Choose theme</h3>
+          <div class="onboarding-options">
+            <button type="button" class="onboarding-option" data-onboarding-theme="light">
+              <span id="onboarding-theme-light-label">Light</span>
+            </button>
+            <button type="button" class="onboarding-option" data-onboarding-theme="dark">
+              <span id="onboarding-theme-dark-label">Dark</span>
+            </button>
+          </div>
+        </section>
+
+        <div class="onboarding-actions">
+          <button type="button" id="onboarding-back-button" class="onboarding-action secondary">Back</button>
+          <button type="button" id="onboarding-next-button" class="onboarding-action primary">Next</button>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
