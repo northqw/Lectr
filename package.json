@@ -1,6 +1,6 @@
 {
   "name": "lectr",
-  "version": "1.0.3",
+  "version": "1.0.1",
   "description": "Lectr is a Markdown editor with live preview and desktop packaging.",
   "main": "electron/main.cjs",
   "scripts": {
