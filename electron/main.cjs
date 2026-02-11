@@ -2,6 +2,10 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
 
+// Reduce Chromium/GTK noise in terminal logs on Linux builds.
+app.commandLine.appendSwitch('disable-logging');
+app.commandLine.appendSwitch('log-level', '3');
+
 const devServerUrl = process.env.ELECTRON_START_URL;
 const supportedTextExtensions = ['.md', '.markdown', '.txt'];
 

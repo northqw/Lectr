@@ -3,7 +3,6 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
 const init = () => {
-    let scrollBarSync = false;
     let closeOpenMenus = () => { };
     let tabs = [];
     let activeTabId = null;
@@ -16,21 +15,31 @@ const init = () => {
     let pendingMarkdownForRender = '';
     let renderFrameId = null;
     let lastRenderedMarkdown = null;
+    let restoringTabScroll = false;
     let previewEditMode = false;
     let previewEditSyncTimer = null;
     let syncingFromPreviewEdit = false;
     let previewSavedRange = null;
     let previousEditPaneWidth = '';
     let previousPreviewPaneWidth = '';
+    let editorIsScrolled = false;
+    let previewIsScrolled = false;
+    let refreshFormatToolbarState = () => { };
+    let refreshOnboardingLocalization = () => { };
+    let setLanguagePreference = () => { };
+    let setPreviewEditModePreference = () => { };
+    let applyThemePreference = () => { };
+    const immersionScrollThresholdPx = 18;
+    const editorTopInsetExtraPx = 0;
 
     const localStorageNamespace = 'com.lectr';
     const localStorageKey = 'last_state';
-    const localStorageScrollBarKey = 'scroll_bar_settings';
     const localStorageThemeKey = 'theme_settings';
     const localStorageLanguageKey = 'language_settings';
     const localStorageZoomKey = 'ui_zoom_settings';
     const localStorageTabsStateKey = 'tabs_state';
     const localStoragePreviewEditModeKey = 'preview_edit_mode_settings';
+    const localStorageOnboardingKey = 'onboarding_v1';
     const translations = {
         en: {
             file: 'File',
@@ -42,7 +51,6 @@ const init = () => {
             copied: 'Copied!',
             exportPdf: 'Export to PDF',
             reset: 'Reset',
-            syncScroll: 'Sync scroll',
             darkMode: 'Dark mode',
             previewEdit: 'Edit in preview',
             language: 'Language',
@@ -56,6 +64,29 @@ const init = () => {
             untitledBase: 'Untitled',
             saved: 'Saved',
             linkedFileNotFound: 'Cannot open linked file from preview.',
+            onboardingTitle: 'Set up Lectr',
+            onboardingStep: 'Step {step} of {total}',
+            onboardingLanguageTitle: 'Choose language',
+            onboardingLanguageEn: 'English',
+            onboardingLanguageRu: 'Russian',
+            onboardingModeTitle: 'Choose mode',
+            onboardingModeAdvancedLabel: 'Advanced',
+            onboardingModeAdvancedDescription: 'Raw markdown editor',
+            onboardingModeSimpleLabel: 'Simple (Experimental)',
+            onboardingModeSimpleDescription: 'Edit directly in preview',
+            onboardingThemeTitle: 'Choose theme',
+            onboardingThemeLight: 'Light',
+            onboardingThemeDark: 'Dark',
+            onboardingBack: 'Back',
+            onboardingNext: 'Next',
+            onboardingFinish: 'Finish',
+            aboutTitle: 'About Lectr',
+            aboutVersionLabel: 'Version',
+            aboutDeveloperLabel: 'Developer',
+            aboutRepositoryLabel: 'Repository',
+            aboutLicenseLabel: 'License',
+            aboutClose: 'Close',
+            aboutRepoLink: 'GitHub',
             format: {
                 bold: 'Bold',
                 italic: 'Italic',
@@ -79,7 +110,6 @@ const init = () => {
             copied: 'Скопировано!',
             exportPdf: 'Экспорт в PDF',
             reset: 'Сбросить',
-            syncScroll: 'Синхр. скролл',
             darkMode: 'Тёмная тема',
             previewEdit: 'Правка в preview',
             language: 'Язык',
@@ -93,6 +123,29 @@ const init = () => {
             untitledBase: 'Без имени',
             saved: 'Сохранено',
             linkedFileNotFound: 'Не удалось открыть связанный файл из preview.',
+            onboardingTitle: 'Настройка Lectr',
+            onboardingStep: 'Шаг {step} из {total}',
+            onboardingLanguageTitle: 'Выберите язык',
+            onboardingLanguageEn: 'Английский',
+            onboardingLanguageRu: 'Русский',
+            onboardingModeTitle: 'Выберите режим',
+            onboardingModeAdvancedLabel: 'Продвинутый',
+            onboardingModeAdvancedDescription: 'Редактирование raw markdown',
+            onboardingModeSimpleLabel: 'Простой (экспериментальный)',
+            onboardingModeSimpleDescription: 'Редактирование прямо в preview',
+            onboardingThemeTitle: 'Выберите тему',
+            onboardingThemeLight: 'Светлая',
+            onboardingThemeDark: 'Тёмная',
+            onboardingBack: 'Назад',
+            onboardingNext: 'Далее',
+            onboardingFinish: 'Готово',
+            aboutTitle: 'О приложении Lectr',
+            aboutVersionLabel: 'Версия',
+            aboutDeveloperLabel: 'Разработчик',
+            aboutRepositoryLabel: 'Репозиторий',
+            aboutLicenseLabel: 'Лицензия',
+            aboutClose: 'Закрыть',
+            aboutRepoLink: 'GitHub',
             format: {
                 bold: 'Жирный',
                 italic: 'Курсив',
@@ -292,11 +345,30 @@ ${"`"}${"`"}${"`"}
             ['copy-button', 'copy'],
             ['export-button', 'exportPdf'],
             ['reset-button', 'reset'],
-            ['sync-scroll-label', 'syncScroll'],
             ['theme-label', 'darkMode'],
             ['preview-edit-label', 'previewEdit'],
             ['language-label', 'language'],
-            ['zoom-label', 'scale']
+            ['zoom-label', 'scale'],
+            ['onboarding-title', 'onboardingTitle'],
+            ['onboarding-language-title', 'onboardingLanguageTitle'],
+            ['onboarding-language-en-label', 'onboardingLanguageEn'],
+            ['onboarding-language-ru-label', 'onboardingLanguageRu'],
+            ['onboarding-mode-title', 'onboardingModeTitle'],
+            ['onboarding-mode-advanced-label', 'onboardingModeAdvancedLabel'],
+            ['onboarding-mode-advanced-description', 'onboardingModeAdvancedDescription'],
+            ['onboarding-mode-simple-label', 'onboardingModeSimpleLabel'],
+            ['onboarding-mode-simple-description', 'onboardingModeSimpleDescription'],
+            ['onboarding-theme-title', 'onboardingThemeTitle'],
+            ['onboarding-theme-light-label', 'onboardingThemeLight'],
+            ['onboarding-theme-dark-label', 'onboardingThemeDark'],
+            ['onboarding-back-button', 'onboardingBack'],
+            ['onboarding-next-button', 'onboardingNext'],
+            ['about-title', 'aboutTitle'],
+            ['about-version-label', 'aboutVersionLabel'],
+            ['about-developer-label', 'aboutDeveloperLabel'],
+            ['about-repo-label', 'aboutRepositoryLabel'],
+            ['about-license-label', 'aboutLicenseLabel'],
+            ['about-repo-link', 'aboutRepoLink']
         ];
 
         mappings.forEach(([id, key]) => {
@@ -311,6 +383,18 @@ ${"`"}${"`"}${"`"}
             const label = t('newTab');
             newTabButton.setAttribute('aria-label', label);
             newTabButton.setAttribute('title', label);
+        }
+
+        const brandButton = byId('brand-button');
+        if (brandButton) {
+            brandButton.setAttribute('aria-label', t('aboutTitle'));
+            brandButton.setAttribute('title', t('aboutTitle'));
+        }
+
+        const aboutCloseButton = byId('about-close-button');
+        if (aboutCloseButton) {
+            aboutCloseButton.setAttribute('aria-label', t('aboutClose'));
+            aboutCloseButton.setAttribute('title', t('aboutClose'));
         }
 
         const formatButtons = Array.from(document.querySelectorAll('.format-button'));
@@ -328,18 +412,113 @@ ${"`"}${"`"}${"`"}
 
         document.documentElement.setAttribute('lang', currentLanguage === 'ru' ? 'ru' : 'en');
         renderTabs();
+        refreshOnboardingLocalization();
     };
 
-    const createTab = ({ title, content, filePath = null, dirty = false, lastSavedContent = null }) => ({
+    const createTab = ({
+        title,
+        content,
+        filePath = null,
+        dirty = false,
+        lastSavedContent = null,
+        editorScrollTop = 0,
+        previewScrollTop = 0
+    }) => ({
         id: `tab-${nextTabId++}`,
         title: title || getUntitledTitle(1),
         content: content || '',
         filePath,
         dirty,
-        lastSavedContent: lastSavedContent ?? (dirty ? '' : (content || ''))
+        lastSavedContent: lastSavedContent ?? (dirty ? '' : (content || '')),
+        editorScrollTop: Number.isFinite(editorScrollTop) ? editorScrollTop : 0,
+        previewScrollTop: Number.isFinite(previewScrollTop) ? previewScrollTop : 0
     });
 
     const getActiveTab = () => tabs.find((tab) => tab.id === activeTabId) || null;
+
+    const getWorkspaceTopOffsetPx = () => {
+        const rootStyles = window.getComputedStyle(document.documentElement);
+        const rawValue = rootStyles.getPropertyValue('--ui-workspace-top-offset').trim();
+        const parsed = Number.parseFloat(rawValue);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+            return parsed;
+        }
+        return 120;
+    };
+
+    const getEditorPaddingOptions = () => ({
+        top: Math.round(getWorkspaceTopOffsetPx() + editorTopInsetExtraPx),
+        bottom: 16
+    });
+
+    const isPastImmersionThreshold = (scrollTop) => Number.isFinite(scrollTop) && scrollTop > immersionScrollThresholdPx;
+
+    const refreshTopImmersionState = () => {
+        const previewElement = document.querySelector('#preview');
+        previewIsScrolled = !!previewElement && isPastImmersionThreshold(previewElement.scrollTop);
+        if (editor && typeof editor.getScrollTop === 'function') {
+            editorIsScrolled = isPastImmersionThreshold(editor.getScrollTop());
+        }
+        updateTopImmersionState();
+    };
+
+    const updateTopImmersionState = () => {
+        if (!document.body) {
+            return;
+        }
+        const shouldEnable = previewEditMode ? previewIsScrolled : (editorIsScrolled || previewIsScrolled);
+        document.body.classList.toggle('content-immersed', shouldEnable);
+    };
+
+    const setTopImmersionFromTab = (tab) => {
+        const nextEditorTop = Number.isFinite(tab?.editorScrollTop) ? tab.editorScrollTop : 0;
+        const nextPreviewTop = Number.isFinite(tab?.previewScrollTop) ? tab.previewScrollTop : 0;
+        editorIsScrolled = isPastImmersionThreshold(nextEditorTop);
+        previewIsScrolled = isPastImmersionThreshold(nextPreviewTop);
+        updateTopImmersionState();
+    };
+
+    const captureActiveTabScrollState = () => {
+        const activeTab = getActiveTab();
+        if (!activeTab) {
+            return;
+        }
+        if (editor && typeof editor.getScrollTop === 'function') {
+            activeTab.editorScrollTop = editor.getScrollTop();
+        }
+        const previewElement = document.querySelector('#preview');
+        if (previewElement) {
+            activeTab.previewScrollTop = previewElement.scrollTop;
+        }
+    };
+
+    const applyTabScrollState = (tab) => {
+        if (!tab) {
+            return;
+        }
+        setTopImmersionFromTab(tab);
+        const previewElement = document.querySelector('#preview');
+        restoringTabScroll = true;
+        if (previewElement) {
+            previewElement.scrollTop = Number.isFinite(tab.previewScrollTop) ? tab.previewScrollTop : 0;
+        }
+        if (editor && typeof editor.setScrollTop === 'function') {
+            editor.setScrollTop(Number.isFinite(tab.editorScrollTop) ? tab.editorScrollTop : 0);
+        }
+        window.requestAnimationFrame(() => {
+            restoringTabScroll = false;
+            refreshTopImmersionState();
+        });
+    };
+
+    const applyEditorViewportTopInset = (editorInstance) => {
+        if (!editorInstance || typeof editorInstance.updateOptions !== 'function') {
+            return;
+        }
+        editorInstance.updateOptions({
+            padding: getEditorPaddingOptions()
+        });
+    };
 
     self.MonacoEnvironment = {
         getWorker(_, label) {
@@ -362,7 +541,8 @@ ${"`"}${"`"}${"`"}
             hover: { enabled: false },
             quickSuggestions: false,
             suggestOnTriggerCharacters: false,
-            folding: false
+            folding: false,
+            padding: getEditorPaddingOptions()
         });
 
         editor.onDidChangeModelContent(() => {
@@ -383,7 +563,14 @@ ${"`"}${"`"}${"`"}
         });
 
         editor.onDidScrollChange((e) => {
-            if (!scrollBarSync) {
+            editorIsScrolled = isPastImmersionThreshold(e.scrollTop);
+            const activeTab = getActiveTab();
+            if (activeTab) {
+                activeTab.editorScrollTop = e.scrollTop;
+            }
+            updateTopImmersionState();
+
+            if (restoringTabScroll) {
                 return;
             }
             if (syncFromPreview) {
@@ -419,7 +606,14 @@ ${"`"}${"`"}${"`"}
         }
 
         previewElement.addEventListener('scroll', () => {
-            if (!scrollBarSync) {
+            previewIsScrolled = isPastImmersionThreshold(previewElement.scrollTop);
+            const activeTab = getActiveTab();
+            if (activeTab) {
+                activeTab.previewScrollTop = previewElement.scrollTop;
+            }
+            updateTopImmersionState();
+
+            if (restoringTabScroll) {
                 return;
             }
             if (syncFromEditor) {
@@ -473,6 +667,9 @@ ${"`"}${"`"}${"`"}
             previousPreviewPaneWidth = previewPane.style.width || '';
             body.classList.add('preview-edit-mode');
             previewPane.style.width = '100%';
+            window.requestAnimationFrame(() => {
+                ensurePreviewEditableCaret({ preserveSelection: true });
+            });
             return;
         }
 
@@ -488,6 +685,37 @@ ${"`"}${"`"}${"`"}
             return false;
         }
         return element.contains(range.commonAncestorContainer);
+    };
+
+    let ensurePreviewEditableCaret = ({ preserveSelection = true } = {}) => {
+        if (!previewEditMode) {
+            return;
+        }
+
+        const output = getPreviewOutputElement();
+        const selection = window.getSelection();
+        if (!output || !selection) {
+            return;
+        }
+
+        if (output.childNodes.length === 0) {
+            output.innerHTML = '<p><br></p>';
+        }
+
+        output.focus();
+
+        if (preserveSelection && previewSavedRange && isRangeInsideElement(previewSavedRange, output)) {
+            selection.removeAllRanges();
+            selection.addRange(previewSavedRange);
+            return;
+        }
+
+        const range = document.createRange();
+        range.selectNodeContents(output);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        previewSavedRange = range.cloneRange();
     };
 
     let savePreviewSelectionRange = () => {
@@ -792,6 +1020,25 @@ ${"`"}${"`"}${"`"}
             return;
         }
 
+        output.addEventListener('keydown', (event) => {
+            if (!previewEditMode) {
+                return;
+            }
+            if (event.key !== 'Tab') {
+                return;
+            }
+            event.preventDefault();
+            output.focus();
+            restorePreviewSelectionRange();
+            const inserted = document.execCommand('insertText', false, '    ');
+            if (!inserted) {
+                insertHtmlIntoPreviewSelection('    ');
+            } else {
+                savePreviewSelectionRange();
+            }
+            refreshFormatToolbarState();
+        });
+
         output.addEventListener('input', () => {
             if (!previewEditMode) {
                 return;
@@ -804,6 +1051,7 @@ ${"`"}${"`"}${"`"}
             previewEditSyncTimer = window.setTimeout(() => {
                 previewEditSyncTimer = null;
                 syncEditorFromPreview(editor);
+                refreshFormatToolbarState();
             }, 220);
         });
     };
@@ -814,6 +1062,7 @@ ${"`"}${"`"}${"`"}
                 return;
             }
             savePreviewSelectionRange();
+            refreshFormatToolbarState();
         });
     };
 
@@ -832,6 +1081,13 @@ ${"`"}${"`"}${"`"}
         output.innerHTML = sanitized;
         previewSavedRange = null;
         setPreviewEditableState(previewEditMode);
+        refreshTopImmersionState();
+        refreshFormatToolbarState();
+        if (previewEditMode) {
+            window.requestAnimationFrame(() => {
+                ensurePreviewEditableCaret({ preserveSelection: false });
+            });
+        }
     };
 
     let scheduleConvert = (markdown) => {
@@ -869,6 +1125,9 @@ ${"`"}${"`"}${"`"}
         document.querySelectorAll('.column').forEach((element) => {
             element.scrollTo({ top: 0 });
         });
+        editorIsScrolled = false;
+        previewIsScrolled = false;
+        updateTopImmersionState();
     };
 
     let presetValue = (value) => {
@@ -876,27 +1135,23 @@ ${"`"}${"`"}${"`"}
         editor.setValue(value);
         suppressEditorChange = false;
         editor.revealPosition({ lineNumber: 1, column: 1 });
-        editor.focus();
         scheduleConvert(value);
-    };
-
-    // ----- sync scroll position -----
-
-    let initScrollBarSync = (settings) => {
-        let checkbox = document.querySelector('#sync-scroll-checkbox');
-        checkbox.checked = settings;
-        scrollBarSync = settings;
-
-        checkbox.addEventListener('change', (event) => {
-            let checked = event.currentTarget.checked;
-            scrollBarSync = checked;
-            saveScrollBarSettings(checked);
+        if (!previewEditMode) {
+            editor.focus();
+            refreshTopImmersionState();
+            refreshFormatToolbarState();
+            return;
+        }
+        window.requestAnimationFrame(() => {
+            ensurePreviewEditableCaret({ preserveSelection: false });
+            refreshTopImmersionState();
+            refreshFormatToolbarState();
         });
     };
 
     // ----- preview CSS loader (switch github-markdown css) -----
-    const PREVIEW_CSS_LIGHT = 'css/github-markdown-light.css?v=1.11.0';
-    const PREVIEW_CSS_DARK = 'css/github-markdown-dark_dimmed.css?v=1.11.0';
+    const PREVIEW_CSS_LIGHT = 'css/github-markdown-light.css';
+    const PREVIEW_CSS_DARK = 'css/github-markdown-dark_dimmed.css';
 
     let setPreviewCss = (useDark) => {
         const link = document.getElementById('gh-markdown-link');
@@ -922,36 +1177,43 @@ ${"`"}${"`"}${"`"}
         document.documentElement.setAttribute('data-theme', enabled ? 'dark' : 'light');
     };
 
+    let applyThemeState = (enabled, { persist = true } = {}) => {
+        const checked = enabled === true;
+        const checkbox = document.querySelector('#theme-checkbox');
+        if (checkbox) {
+            checkbox.checked = checked;
+        }
+
+        setTheme(checked);
+        setPreviewCss(checked);
+
+        if (monaco && monaco.editor && typeof monaco.editor.setTheme === 'function') {
+            monaco.editor.setTheme(checked ? 'vs-dark' : 'vs');
+        }
+
+        if (persist) {
+            saveThemeSettings(checked);
+        }
+    };
+
+    applyThemePreference = (enabled, options = {}) => {
+        applyThemeState(enabled, options);
+    };
+
     let initThemeToggle = (settings) => {
         let checkbox = document.querySelector('#theme-checkbox');
         if (!checkbox) return;
-        checkbox.checked = settings;
-        setTheme(settings);
+        applyThemeState(settings, { persist: false });
 
-        // set Monaco editor theme to match page theme
-        if (monaco && monaco.editor && typeof monaco.editor.setTheme === 'function') {
-            monaco.editor.setTheme(settings ? 'vs-dark' : 'vs');
+        if (checkbox.dataset.boundChange === '1') {
+            return;
         }
-        // set preview css to match theme
-        setPreviewCss(settings);
+        checkbox.dataset.boundChange = '1';
 
         checkbox.addEventListener('change', (event) => {
             let checked = event.currentTarget.checked;
-            setTheme(checked);
-            saveThemeSettings(checked);
-            setPreviewCss(checked);
-            if (monaco && monaco.editor && typeof monaco.editor.setTheme === 'function') {
-                monaco.editor.setTheme(checked ? 'vs-dark' : 'vs');
-            }
+            applyThemeState(checked, { persist: true });
         });
-    };
-
-    let enableScrollBarSync = () => {
-        scrollBarSync = true;
-    };
-
-    let disableScrollBarSync = () => {
-        scrollBarSync = false;
     };
 
     // ----- clipboard utils -----
@@ -1188,6 +1450,12 @@ ${"`"}${"`"}${"`"}
             title.textContent = tab.title;
             tabElement.appendChild(title);
 
+            const dirtyIndicator = document.createElement('span');
+            dirtyIndicator.className = 'tab-dirty-indicator';
+            dirtyIndicator.textContent = '•';
+            dirtyIndicator.setAttribute('aria-hidden', 'true');
+            tabElement.appendChild(dirtyIndicator);
+
             const closeButton = document.createElement('button');
             closeButton.type = 'button';
             closeButton.className = 'tab-close';
@@ -1208,10 +1476,15 @@ ${"`"}${"`"}${"`"}
         if (!tab) {
             return;
         }
+        captureActiveTabScrollState();
         activeTabId = tabId;
+        setTopImmersionFromTab(tab);
         presetValue(tab.content);
         saveLastContent(tab.content);
         renderTabs();
+        window.requestAnimationFrame(() => {
+            applyTabScrollState(tab);
+        });
     };
 
     let createUntitledTab = (content = '') => {
@@ -1238,10 +1511,42 @@ ${"`"}${"`"}${"`"}
         tabs.splice(toIndex, 0, tab);
     };
 
-    let closeTab = async (tabId, editor) => {
+    let animateTabClose = (tabElement) => {
+        return new Promise((resolve) => {
+            if (!(tabElement instanceof HTMLElement)) {
+                resolve();
+                return;
+            }
+
+            const rect = tabElement.getBoundingClientRect();
+            tabElement.style.width = `${rect.width}px`;
+            tabElement.style.minWidth = `${rect.width}px`;
+            tabElement.style.maxWidth = `${rect.width}px`;
+            tabElement.classList.add('tab-exit');
+
+            let completed = false;
+            const done = () => {
+                if (completed) {
+                    return;
+                }
+                completed = true;
+                resolve();
+            };
+
+            window.requestAnimationFrame(() => {
+                tabElement.classList.add('tab-exit-active');
+            });
+
+            tabElement.addEventListener('transitionend', done, { once: true });
+            window.setTimeout(done, 240);
+        });
+    };
+
+    let closeTab = async (tabId, editor, options = {}) => {
+        const { tabElement = null, animate = false } = options;
         const tab = tabs.find((item) => item.id === tabId);
         if (!tab) {
-            return;
+            return false;
         }
 
         if (tab.id === activeTabId && editor) {
@@ -1257,14 +1562,18 @@ ${"`"}${"`"}${"`"}
                     showToast: true
                 });
                 if (!saveResult || !saveResult.saved) {
-                    return;
+                    return false;
                 }
             } else {
                 const discardConfirmed = window.confirm(t('confirmCloseUnsavedDiscard', { title: tab.title }));
                 if (!discardConfirmed) {
-                    return;
+                    return false;
                 }
             }
+        }
+
+        if (animate && tabElement instanceof HTMLElement) {
+            await animateTabClose(tabElement);
         }
 
         const closingIndex = tabs.findIndex((item) => item.id === tabId);
@@ -1272,7 +1581,7 @@ ${"`"}${"`"}${"`"}
 
         if (tabs.length === 0) {
             createUntitledTab(getDefaultInput());
-            return;
+            return true;
         }
 
         const nextIndex = Math.max(0, closingIndex - 1);
@@ -1282,73 +1591,107 @@ ${"`"}${"`"}${"`"}
         } else {
             renderTabs();
         }
+        return true;
     };
 
     let setupTabsUi = (editor) => {
         const tabsList = document.querySelector('#tabs-list');
+        const tabsBar = document.querySelector('#tabs-bar');
         const dragState = {
             pointerId: null,
             tabId: null,
             tabElement: null,
+            originIndex: null,
+            startClientX: 0,
+            startClientY: 0,
             pointerOffsetX: 0,
-            translateX: 0,
-            started: false
+            started: false,
+            activated: false,
+            suppressNextClick: false,
+            pendingInsertIndex: null,
+            slotSize: 0,
+            originGap: null,
+            floatingLeft: 0,
+            floatingTop: 0
         };
 
-        const clearReorderStyles = () => {
+        const clearDropSlotPreview = () => {
             if (!tabsList) {
                 return;
             }
+            tabsList.style.paddingRight = '';
             tabsList.querySelectorAll('.tab-item').forEach((element) => {
-                element.classList.remove('reorder-anim');
-                if (!element.classList.contains('dragging-pointer')) {
-                    element.style.transform = '';
-                }
+                element.classList.remove('drop-target');
+                element.style.marginLeft = '';
             });
         };
 
-        const animateReorder = (beforeLeftMap) => {
-            if (!tabsList) {
+        const clearFloatingStyles = (element) => {
+            if (!element) {
                 return;
             }
-            const afterElements = Array.from(tabsList.querySelectorAll('.tab-item'));
-            afterElements.forEach((element) => {
-                if (element === dragState.tabElement) {
-                    return;
-                }
+            element.style.position = '';
+            element.style.left = '';
+            element.style.top = '';
+            element.style.width = '';
+            element.style.height = '';
+            element.style.margin = '';
+            element.style.transform = '';
+            element.style.zIndex = '';
+            element.style.pointerEvents = '';
+        };
+
+        const captureTabPositions = () => {
+            const positions = new Map();
+            if (!tabsList) {
+                return positions;
+            }
+            tabsList.querySelectorAll('.tab-item').forEach((element) => {
                 const tabId = element.getAttribute('data-tab-id');
-                if (!tabId || !beforeLeftMap.has(tabId)) {
+                if (!tabId) {
                     return;
                 }
-                const previousLeft = beforeLeftMap.get(tabId);
-                const nextLeft = element.getBoundingClientRect().left;
-                const deltaX = previousLeft - nextLeft;
+                const rect = element.getBoundingClientRect();
+                positions.set(tabId, { left: rect.left });
+            });
+            return positions;
+        };
+
+        const animateTabPositions = (beforePositions) => {
+            if (!tabsList || !(beforePositions instanceof Map) || beforePositions.size === 0) {
+                return;
+            }
+            tabsList.querySelectorAll('.tab-item').forEach((element) => {
+                const tabId = element.getAttribute('data-tab-id');
+                if (!tabId || !beforePositions.has(tabId)) {
+                    return;
+                }
+
+                const previous = beforePositions.get(tabId);
+                const rect = element.getBoundingClientRect();
+                const deltaX = previous.left - rect.left;
                 if (Math.abs(deltaX) < 0.5) {
                     return;
                 }
 
                 element.classList.add('reorder-anim');
                 element.style.transform = `translateX(${deltaX}px)`;
-                requestAnimationFrame(() => {
-                    element.style.transform = 'translateX(0)';
-                });
+                void element.offsetWidth;
+                element.style.transform = 'translateX(0)';
+                element.addEventListener('transitionend', () => {
+                    element.classList.remove('reorder-anim');
+                    element.style.transform = '';
+                }, { once: true });
             });
         };
 
-        const reorderByPointer = () => {
+        const getInsertIndexByCenter = (draggedCenter) => {
             if (!tabsList || !dragState.tabElement || !dragState.tabId) {
-                return;
+                return null;
             }
 
             const items = Array.from(tabsList.querySelectorAll('.tab-item'));
             const dragged = dragState.tabElement;
-            const currentIndex = tabs.findIndex((tab) => tab.id === dragState.tabId);
-            if (currentIndex === -1) {
-                return;
-            }
-
-            const draggedRect = dragged.getBoundingClientRect();
-            const draggedCenter = draggedRect.left + draggedRect.width / 2;
             const withoutDragged = items.filter((element) => element !== dragged);
 
             let insertIndex = withoutDragged.length;
@@ -1362,33 +1705,45 @@ ${"`"}${"`"}${"`"}
                 }
             }
 
-            const targetIndex = Math.min(tabs.length - 1, insertIndex);
-            if (targetIndex === currentIndex) {
+            return insertIndex;
+        };
+
+        const applyDropSlotPreview = (insertIndex) => {
+            if (!tabsList || !dragState.tabElement || !dragState.tabId || insertIndex === null) {
+                return;
+            }
+            const withoutDraggedCount = Math.max(0, tabs.length - 1);
+            const boundedInsertIndex = Math.max(0, Math.min(withoutDraggedCount, insertIndex));
+            if (dragState.pendingInsertIndex === boundedInsertIndex) {
+                return;
+            }
+            const beforePositions = captureTabPositions();
+            dragState.pendingInsertIndex = boundedInsertIndex;
+            clearDropSlotPreview();
+
+            const currentIndex = tabs.findIndex((tab) => tab.id === dragState.tabId);
+            if (currentIndex === -1) {
+                animateTabPositions(beforePositions);
                 return;
             }
 
-            const beforeLeftMap = new Map();
-            items.forEach((element) => {
-                const tabId = element.getAttribute('data-tab-id');
-                if (tabId) {
-                    beforeLeftMap.set(tabId, element.getBoundingClientRect().left);
-                }
-            });
-
-            moveTab(currentIndex, targetIndex);
-
-            const nextTab = tabs[targetIndex + 1];
-            if (nextTab) {
-                const nextElement = tabsList.querySelector(`[data-tab-id="${nextTab.id}"]`);
-                if (nextElement) {
-                    tabsList.insertBefore(dragged, nextElement);
-                }
-            } else {
-                tabsList.appendChild(dragged);
+            const slotSize = Math.max(32, dragState.slotSize);
+            const withoutDragged = Array.from(tabsList.querySelectorAll('.tab-item')).filter((element) => element !== dragState.tabElement);
+            if (boundedInsertIndex >= withoutDragged.length) {
+                tabsList.style.paddingRight = '0px';
+                void tabsList.offsetWidth;
+                tabsList.style.paddingRight = `${slotSize}px`;
+                animateTabPositions(beforePositions);
+                return;
             }
-
-            animateReorder(beforeLeftMap);
-            schedulePersistTabsState();
+            const targetElement = withoutDragged[boundedInsertIndex];
+            if (targetElement) {
+                targetElement.classList.add('drop-target');
+                targetElement.style.marginLeft = '0px';
+                void targetElement.offsetWidth;
+                targetElement.style.marginLeft = `${slotSize}px`;
+            }
+            animateTabPositions(beforePositions);
         };
 
         const beginDrag = (event, tabElement) => {
@@ -1405,16 +1760,20 @@ ${"`"}${"`"}${"`"}
             }
 
             const rect = tabElement.getBoundingClientRect();
+            dragState.startClientX = event.clientX;
+            dragState.startClientY = event.clientY;
             dragState.pointerId = event.pointerId;
             dragState.tabId = tabId;
             dragState.tabElement = tabElement;
-            dragState.pointerOffsetX = event.clientX - rect.left;
-            dragState.translateX = 0;
+            dragState.originIndex = tabs.findIndex((tab) => tab.id === tabId);
             dragState.started = true;
+            dragState.activated = false;
+            dragState.pendingInsertIndex = dragState.originIndex;
+            dragState.slotSize = Math.round(rect.width + 10);
+            dragState.floatingLeft = rect.left;
+            dragState.floatingTop = rect.top;
 
-            tabElement.classList.add('dragging-pointer');
             tabElement.setPointerCapture(event.pointerId);
-            document.body.classList.add('tabs-dragging');
         };
 
         const updateDrag = (event) => {
@@ -1423,13 +1782,71 @@ ${"`"}${"`"}${"`"}
             }
 
             const dragged = dragState.tabElement;
-            const rect = dragged.getBoundingClientRect();
-            const desiredLeft = event.clientX - dragState.pointerOffsetX;
-            const deltaX = desiredLeft - rect.left;
-            dragState.translateX += deltaX;
-            dragged.style.transform = `translateX(${dragState.translateX}px)`;
+            if (!dragState.activated) {
+                const deltaX = Math.abs(event.clientX - dragState.startClientX);
+                const deltaY = Math.abs(event.clientY - dragState.startClientY);
+                if (deltaX < 4 && deltaY < 4) {
+                    return;
+                }
 
-            reorderByPointer();
+                const beforePositions = captureTabPositions();
+                const rect = dragged.getBoundingClientRect();
+                dragState.pointerOffsetX = event.clientX - rect.left;
+                dragState.slotSize = Math.round(rect.width + 10);
+                dragState.floatingTop = rect.top;
+                dragState.floatingLeft = rect.left;
+                dragState.activated = true;
+
+                const originGap = document.createElement('div');
+                originGap.className = 'tab-origin-gap';
+                originGap.style.width = `${Math.round(rect.width)}px`;
+                originGap.style.minWidth = `${Math.round(rect.width)}px`;
+                originGap.style.maxWidth = `${Math.round(rect.width)}px`;
+                if (tabsList) {
+                    tabsList.insertBefore(originGap, dragged.nextSibling);
+                    dragState.originGap = originGap;
+                    window.requestAnimationFrame(() => {
+                        if (!dragState.started || dragState.originGap !== originGap) {
+                            return;
+                        }
+                        originGap.classList.add('visible');
+                        void originGap.offsetWidth;
+                        originGap.classList.add('collapse');
+                    });
+                    originGap.addEventListener('transitionend', () => {
+                        if (originGap.parentElement) {
+                            originGap.remove();
+                        }
+                        if (dragState.originGap === originGap) {
+                            dragState.originGap = null;
+                        }
+                    }, { once: true });
+                }
+
+                dragged.classList.add('dragging-pointer');
+                dragged.style.position = 'fixed';
+                dragged.style.left = `${rect.left}px`;
+                dragged.style.top = `${rect.top}px`;
+                dragged.style.width = `${rect.width}px`;
+                dragged.style.height = `${rect.height}px`;
+                dragged.style.margin = '0';
+                dragged.style.zIndex = '140';
+                dragged.style.pointerEvents = 'none';
+                document.body.appendChild(dragged);
+
+                document.body.classList.add('tabs-dragging');
+                if (tabsBar) {
+                    tabsBar.classList.add('drag-slot-active');
+                }
+                animateTabPositions(beforePositions);
+            }
+
+            dragState.floatingLeft = event.clientX - dragState.pointerOffsetX;
+            dragged.style.left = `${dragState.floatingLeft}px`;
+
+            const draggedCenter = dragState.floatingLeft + dragState.slotSize / 2;
+            const insertIndex = getInsertIndexByCenter(draggedCenter);
+            applyDropSlotPreview(insertIndex);
         };
 
         const endDrag = (event) => {
@@ -1437,33 +1854,83 @@ ${"`"}${"`"}${"`"}
                 return;
             }
 
+            const wasActivated = dragState.activated;
+            const draggedTabId = dragState.tabId;
+            const proposedInsertIndex = dragState.pendingInsertIndex;
+            const beforePositions = wasActivated ? captureTabPositions() : new Map();
+            const floatingInBody = !!(dragState.tabElement && dragState.tabElement.parentElement === document.body);
+
             if (dragState.tabElement) {
                 dragState.tabElement.classList.remove('dragging-pointer');
-                dragState.tabElement.style.transform = '';
                 if (dragState.tabElement.hasPointerCapture(event.pointerId)) {
                     dragState.tabElement.releasePointerCapture(event.pointerId);
                 }
+                if (floatingInBody) {
+                    dragState.tabElement.remove();
+                } else {
+                    clearFloatingStyles(dragState.tabElement);
+                }
             }
+
+            if (tabsBar) {
+                tabsBar.classList.remove('drag-slot-active');
+            }
+
+            if (wasActivated && draggedTabId && Number.isInteger(proposedInsertIndex)) {
+                const currentIndex = tabs.findIndex((tab) => tab.id === draggedTabId);
+                const boundedTargetIndex = Math.max(0, Math.min(tabs.length - 1, proposedInsertIndex));
+                if (currentIndex !== -1) {
+                    moveTab(currentIndex, boundedTargetIndex);
+                }
+                renderTabs();
+                clearDropSlotPreview();
+                animateTabPositions(beforePositions);
+                dragState.suppressNextClick = true;
+            } else {
+                clearDropSlotPreview();
+            }
+
+            if (dragState.originGap && dragState.originGap.parentElement) {
+                dragState.originGap.remove();
+            }
+            dragState.originGap = null;
 
             dragState.pointerId = null;
             dragState.tabId = null;
             dragState.tabElement = null;
+            dragState.originIndex = null;
+            dragState.startClientX = 0;
+            dragState.startClientY = 0;
             dragState.pointerOffsetX = 0;
-            dragState.translateX = 0;
             dragState.started = false;
+            dragState.activated = false;
+            dragState.pendingInsertIndex = null;
+            dragState.slotSize = 0;
+            dragState.floatingLeft = 0;
+            dragState.floatingTop = 0;
             document.body.classList.remove('tabs-dragging');
-            clearReorderStyles();
         };
 
         if (tabsList) {
             tabsList.addEventListener('click', async (event) => {
+                if (dragState.suppressNextClick) {
+                    dragState.suppressNextClick = false;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return;
+                }
+
                 const closeTarget = event.target.closest('[data-tab-close]');
                 if (closeTarget) {
                     event.preventDefault();
                     event.stopPropagation();
                     const tabId = closeTarget.getAttribute('data-tab-close');
                     if (tabId) {
-                        await closeTab(tabId, editor);
+                        const parentTabElement = closeTarget.closest('[data-tab-id]');
+                        await closeTab(tabId, editor, {
+                            tabElement: parentTabElement,
+                            animate: true
+                        });
                     }
                     return;
                 }
@@ -1489,27 +1956,42 @@ ${"`"}${"`"}${"`"}
                 beginDrag(event, tabTarget);
             });
 
-            tabsList.addEventListener('pointermove', (event) => {
-                updateDrag(event);
-            });
-
-            tabsList.addEventListener('pointerup', (event) => {
-                endDrag(event);
-            });
-
-            tabsList.addEventListener('pointercancel', (event) => {
-                endDrag(event);
-            });
-
             tabsList.addEventListener('dragstart', (event) => {
                 event.preventDefault();
             });
         }
 
+        document.addEventListener('pointermove', (event) => {
+            updateDrag(event);
+        });
+
+        document.addEventListener('pointerup', (event) => {
+            endDrag(event);
+        });
+
+        document.addEventListener('pointercancel', (event) => {
+            endDrag(event);
+        });
+
         const newTabButton = document.querySelector('#new-tab-button');
         if (newTabButton) {
             newTabButton.addEventListener('click', () => {
-                createUntitledTab('');
+                const beforePositions = captureTabPositions();
+                const createdTab = createUntitledTab('');
+                animateTabPositions(beforePositions);
+                requestAnimationFrame(() => {
+                    if (!createdTab || !createdTab.id) {
+                        return;
+                    }
+                    const createdElement = tabsList ? tabsList.querySelector(`[data-tab-id="${createdTab.id}"]`) : null;
+                    if (!createdElement) {
+                        return;
+                    }
+                    createdElement.classList.add('tab-enter');
+                    createdElement.addEventListener('animationend', () => {
+                        createdElement.classList.remove('tab-enter');
+                    }, { once: true });
+                });
             });
         }
     };
@@ -1567,6 +2049,89 @@ ${"`"}${"`"}${"`"}
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 closeOpenMenus();
+            }
+        });
+    };
+
+    let setupAboutDialog = () => {
+        const overlay = document.querySelector('#about-overlay');
+        const brandButton = document.querySelector('#brand-button');
+        const closeButton = document.querySelector('#about-close-button');
+        const versionValue = document.querySelector('#about-version-value');
+        if (!overlay || !brandButton || !closeButton || !versionValue) {
+            return;
+        }
+
+        const fallbackVersion = versionValue.textContent || 'v1.0.1';
+        let appVersionLoaded = false;
+
+        const isOpen = () => !overlay.hidden && overlay.classList.contains('open');
+
+        const closeAbout = () => {
+            overlay.classList.remove('open');
+            overlay.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('about-open');
+            window.setTimeout(() => {
+                overlay.hidden = true;
+            }, 210);
+        };
+
+        const ensureAppVersion = async () => {
+            if (appVersionLoaded) {
+                return;
+            }
+            appVersionLoaded = true;
+            if (!window.lectrDesktop || typeof window.lectrDesktop.getAppVersion !== 'function') {
+                versionValue.textContent = fallbackVersion;
+                return;
+            }
+            try {
+                const version = await window.lectrDesktop.getAppVersion();
+                if (typeof version === 'string' && version.trim()) {
+                    versionValue.textContent = `v${version.trim()}`;
+                    return;
+                }
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to load app version', error);
+            }
+            versionValue.textContent = fallbackVersion;
+        };
+
+        const openAbout = () => {
+            closeOpenMenus();
+            overlay.hidden = false;
+            overlay.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('about-open');
+            window.requestAnimationFrame(() => {
+                overlay.classList.add('open');
+            });
+            void ensureAppVersion();
+        };
+
+        brandButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            if (isOpen()) {
+                closeAbout();
+                return;
+            }
+            openAbout();
+        });
+
+        closeButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            closeAbout();
+        });
+
+        overlay.addEventListener('pointerdown', (event) => {
+            if (event.target === overlay) {
+                closeAbout();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && isOpen()) {
+                closeAbout();
             }
         });
     };
@@ -1937,7 +2502,11 @@ ${"`"}${"`"}${"`"}
                 event.preventDefault();
                 const activeTab = getActiveTab();
                 if (activeTab) {
-                    await closeTab(activeTab.id, editor);
+                    const activeTabElement = document.querySelector(`#tabs-list [data-tab-id="${activeTab.id}"]`);
+                    await closeTab(activeTab.id, editor, {
+                        tabElement: activeTabElement,
+                        animate: true
+                    });
                 }
                 return;
             }
@@ -1947,7 +2516,12 @@ ${"`"}${"`"}${"`"}
                     return;
                 }
                 event.preventDefault();
-                createUntitledTab('');
+                const newTabButton = document.querySelector('#new-tab-button');
+                if (newTabButton instanceof HTMLButtonElement) {
+                    newTabButton.click();
+                } else {
+                    createUntitledTab('');
+                }
             }
         });
     };
@@ -2313,6 +2887,17 @@ ${"`"}${"`"}${"`"}
             return;
         }
 
+        const formatButtons = Array.from(toolbar.querySelectorAll('.format-button'));
+        const buttonByFormat = new Map();
+        formatButtons.forEach((button) => {
+            const formatType = button.getAttribute('data-format');
+            if (!formatType) {
+                return;
+            }
+            buttonByFormat.set(formatType, button);
+            button.setAttribute('aria-pressed', 'false');
+        });
+
         const handlers = {
             bold: () => applyWrapFormat(editor, '**', '**', 'bold text'),
             italic: () => applyWrapFormat(editor, '*', '*', 'italic text'),
@@ -2326,10 +2911,220 @@ ${"`"}${"`"}${"`"}
             link: () => applyLinkFormat(editor)
         };
 
+        const setButtonActiveState = (formatType, active) => {
+            const button = buttonByFormat.get(formatType);
+            if (!button) {
+                return;
+            }
+            button.classList.toggle('active', active === true);
+            button.setAttribute('aria-pressed', active === true ? 'true' : 'false');
+        };
+
+        const clearButtonActiveStates = () => {
+            buttonByFormat.forEach((_, formatType) => {
+                setButtonActiveState(formatType, false);
+            });
+        };
+
+        const isCursorInsideDelimitedText = (lineText, cursorOffset, prefix, suffix) => {
+            if (!lineText || !prefix || !suffix || cursorOffset < 0) {
+                return false;
+            }
+
+            let openIndex = lineText.lastIndexOf(prefix, cursorOffset - 1);
+            while (openIndex !== -1) {
+                const contentStart = openIndex + prefix.length;
+                const closeIndex = lineText.indexOf(suffix, contentStart);
+                if (closeIndex !== -1 && closeIndex > contentStart && cursorOffset >= contentStart && cursorOffset <= closeIndex) {
+                    return true;
+                }
+                openIndex = lineText.lastIndexOf(prefix, openIndex - 1);
+            }
+            return false;
+        };
+
+        const isInlineWrapActiveInEditor = (model, selection, prefix, suffix) => {
+            if (!model || !selection) {
+                return false;
+            }
+
+            const fullText = model.getValue();
+            const startOffset = model.getOffsetAt({
+                lineNumber: selection.startLineNumber,
+                column: selection.startColumn
+            });
+            const endOffset = model.getOffsetAt({
+                lineNumber: selection.endLineNumber,
+                column: selection.endColumn
+            });
+            const selectedText = model.getValueInRange(selection);
+            const hasSelection = startOffset !== endOffset;
+
+            if (hasSelection) {
+                return hasExactDelimiterAround(fullText, startOffset, endOffset, prefix, suffix)
+                    || hasExactDelimiterInside(selectedText, prefix, suffix);
+            }
+
+            const lineText = model.getLineContent(selection.startLineNumber);
+            const lineStartOffset = model.getOffsetAt({
+                lineNumber: selection.startLineNumber,
+                column: 1
+            });
+            const cursorOffsetInLine = startOffset - lineStartOffset;
+            return isCursorInsideDelimitedText(lineText, cursorOffsetInLine, prefix, suffix);
+        };
+
+        const isLineFormatActiveInEditor = (model, selection, regex) => {
+            if (!model || !selection || !(regex instanceof RegExp)) {
+                return false;
+            }
+            let startLine = selection.startLineNumber;
+            let endLine = selection.endLineNumber;
+            if (endLine > startLine && selection.endColumn === 1) {
+                endLine -= 1;
+            }
+            for (let line = startLine; line <= endLine; line += 1) {
+                if (!regex.test(model.getLineContent(line))) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        const isLinkActiveInEditor = (model, selection) => {
+            if (!model || !selection) {
+                return false;
+            }
+            const fullText = model.getValue();
+            const startOffset = model.getOffsetAt({
+                lineNumber: selection.startLineNumber,
+                column: selection.startColumn
+            });
+            const endOffset = model.getOffsetAt({
+                lineNumber: selection.endLineNumber,
+                column: selection.endColumn
+            });
+            const hasSelection = startOffset !== endOffset;
+            const pattern = /\[[^\]\n]+\]\([^)]+?\)/g;
+            let match = pattern.exec(fullText);
+            while (match) {
+                const linkStart = match.index;
+                const linkEnd = linkStart + match[0].length;
+                if (!hasSelection && startOffset >= linkStart && startOffset <= linkEnd) {
+                    return true;
+                }
+                if (hasSelection && startOffset >= linkStart && endOffset <= linkEnd) {
+                    return true;
+                }
+                match = pattern.exec(fullText);
+            }
+            return false;
+        };
+
+        const getPreviewSelectionContextElement = () => {
+            const output = getPreviewOutputElement();
+            if (!output) {
+                return null;
+            }
+
+            let sourceRange = null;
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                if (isRangeInsideElement(range, output)) {
+                    sourceRange = range;
+                }
+            }
+            if (!sourceRange && previewSavedRange && isRangeInsideElement(previewSavedRange, output)) {
+                sourceRange = previewSavedRange;
+            }
+            if (!sourceRange) {
+                return null;
+            }
+
+            const containerNode = sourceRange.startContainer;
+            if (containerNode.nodeType === Node.ELEMENT_NODE) {
+                return containerNode;
+            }
+            return containerNode.parentElement;
+        };
+
+        const getEditorFormatStates = () => {
+            const model = editor.getModel();
+            const selection = editor.getSelection();
+            if (!model || !selection) {
+                return {};
+            }
+
+            return {
+                bold: isInlineWrapActiveInEditor(model, selection, '**', '**'),
+                italic: isInlineWrapActiveInEditor(model, selection, '*', '*'),
+                strikethrough: isInlineWrapActiveInEditor(model, selection, '~~', '~~'),
+                code: isInlineWrapActiveInEditor(model, selection, '`', '`'),
+                h1: isLineFormatActiveInEditor(model, selection, /^(\s{0,3})#\s+/),
+                h2: isLineFormatActiveInEditor(model, selection, /^(\s{0,3})##\s+/),
+                ul: isLineFormatActiveInEditor(model, selection, /^\s*[-*+]\s+/),
+                ol: isLineFormatActiveInEditor(model, selection, /^\s*\d+\.\s+/),
+                quote: isLineFormatActiveInEditor(model, selection, /^(\s{0,3})>\s?/),
+                link: isLinkActiveInEditor(model, selection)
+            };
+        };
+
+        const getPreviewFormatStates = () => {
+            const contextElement = getPreviewSelectionContextElement();
+            if (!contextElement || !(contextElement instanceof Element)) {
+                return {};
+            }
+            const hasClosest = (selector) => Boolean(contextElement.closest(selector));
+            const inInlineCode = hasClosest('code') && !hasClosest('pre code');
+
+            return {
+                bold: hasClosest('strong, b'),
+                italic: hasClosest('em, i'),
+                strikethrough: hasClosest('s, strike, del'),
+                code: inInlineCode,
+                h1: hasClosest('h1'),
+                h2: hasClosest('h2'),
+                ul: hasClosest('ul'),
+                ol: hasClosest('ol'),
+                quote: hasClosest('blockquote'),
+                link: hasClosest('a[href]')
+            };
+        };
+
+        const applyFormatStates = (states) => {
+            Object.keys(handlers).forEach((formatType) => {
+                setButtonActiveState(formatType, Boolean(states[formatType]));
+            });
+        };
+
+        let refreshFormatToolbarFrameId = null;
+        const refreshFormatToolbarStateNow = () => {
+            if (previewEditMode) {
+                applyFormatStates(getPreviewFormatStates());
+                return;
+            }
+            applyFormatStates(getEditorFormatStates());
+        };
+
+        const scheduleFormatToolbarStateRefresh = () => {
+            if (refreshFormatToolbarFrameId !== null) {
+                return;
+            }
+            refreshFormatToolbarFrameId = window.requestAnimationFrame(() => {
+                refreshFormatToolbarFrameId = null;
+                refreshFormatToolbarStateNow();
+            });
+        };
+
+        refreshFormatToolbarState = scheduleFormatToolbarStateRefresh;
+        scheduleFormatToolbarStateRefresh();
+
         const withUndoStop = (handler) => {
             editor.pushUndoStop();
             handler();
             editor.pushUndoStop();
+            scheduleFormatToolbarStateRefresh();
         };
 
         toolbar.addEventListener('mousedown', (event) => {
@@ -2355,6 +3150,7 @@ ${"`"}${"`"}${"`"}
             }
 
             if (previewEditMode && applyPreviewFormat(formatType, editor)) {
+                scheduleFormatToolbarStateRefresh();
                 return;
             }
             withUndoStop(handlers[formatType]);
@@ -2379,11 +3175,37 @@ ${"`"}${"`"}${"`"}
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyW, () => {
             const activeTab = getActiveTab();
             if (activeTab) {
-                void closeTab(activeTab.id, editor);
+                const activeTabElement = document.querySelector(`#tabs-list [data-tab-id="${activeTab.id}"]`);
+                void closeTab(activeTab.id, editor, {
+                    tabElement: activeTabElement,
+                    animate: true
+                });
             }
         });
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyT, () => {
+            const newTabButton = document.querySelector('#new-tab-button');
+            if (newTabButton instanceof HTMLButtonElement) {
+                newTabButton.click();
+                return;
+            }
             createUntitledTab('');
+        });
+
+        editor.onDidChangeCursorSelection(() => {
+            scheduleFormatToolbarStateRefresh();
+        });
+        editor.onDidChangeModelContent(() => {
+            scheduleFormatToolbarStateRefresh();
+        });
+        editor.onDidFocusEditorText(() => {
+            scheduleFormatToolbarStateRefresh();
+        });
+        editor.onDidBlurEditorText(() => {
+            if (previewEditMode) {
+                scheduleFormatToolbarStateRefresh();
+                return;
+            }
+            clearButtonActiveStates();
         });
     };
 
@@ -2406,15 +3228,6 @@ ${"`"}${"`"}${"`"}
         }
     };
 
-    let loadScrollBarSettings = () => {
-        try {
-            const raw = localStorage.getItem(`${localStorageNamespace}_${localStorageScrollBarKey}`);
-            return raw ? JSON.parse(raw) : null;
-        } catch (error) {
-            return null;
-        }
-    };
-
     let loadThemeSettings = () => {
         let last = null;
         try {
@@ -2434,14 +3247,6 @@ ${"`"}${"`"}${"`"}
             }
         }
         return last;
-    };
-
-    let saveScrollBarSettings = (settings) => {
-        try {
-            localStorage.setItem(`${localStorageNamespace}_${localStorageScrollBarKey}`, JSON.stringify(settings));
-        } catch (error) {
-            // ignore storage errors
-        }
     };
 
     let saveThemeSettings = (settings) => {
@@ -2508,6 +3313,23 @@ ${"`"}${"`"}${"`"}
         }
     };
 
+    let loadOnboardingState = () => {
+        try {
+            const raw = localStorage.getItem(`${localStorageNamespace}_${localStorageOnboardingKey}`);
+            return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+            return null;
+        }
+    };
+
+    let saveOnboardingState = (state) => {
+        try {
+            localStorage.setItem(`${localStorageNamespace}_${localStorageOnboardingKey}`, JSON.stringify(state));
+        } catch (error) {
+            // ignore storage errors
+        }
+    };
+
     let loadTabsState = () => {
         try {
             const raw = localStorage.getItem(`${localStorageNamespace}_${localStorageTabsStateKey}`);
@@ -2533,7 +3355,9 @@ ${"`"}${"`"}${"`"}
                     filePath,
                     content,
                     lastSavedContent,
-                    dirty: tab.dirty === true || content !== lastSavedContent
+                    dirty: tab.dirty === true || content !== lastSavedContent,
+                    editorScrollTop: Number.isFinite(tab.editorScrollTop) ? tab.editorScrollTop : 0,
+                    previewScrollTop: Number.isFinite(tab.previewScrollTop) ? tab.previewScrollTop : 0
                 };
             });
 
@@ -2550,6 +3374,7 @@ ${"`"}${"`"}${"`"}
 
     let saveTabsState = () => {
         try {
+            captureActiveTabScrollState();
             const snapshot = {
                 version: 1,
                 activeTabId,
@@ -2559,7 +3384,9 @@ ${"`"}${"`"}${"`"}
                     filePath: tab.filePath,
                     content: tab.content,
                     lastSavedContent: tab.lastSavedContent,
-                    dirty: tab.dirty
+                    dirty: tab.dirty,
+                    editorScrollTop: Number.isFinite(tab.editorScrollTop) ? tab.editorScrollTop : 0,
+                    previewScrollTop: Number.isFinite(tab.previewScrollTop) ? tab.previewScrollTop : 0
                 }))
             };
             localStorage.setItem(`${localStorageNamespace}_${localStorageTabsStateKey}`, JSON.stringify(snapshot));
@@ -2592,44 +3419,31 @@ ${"`"}${"`"}${"`"}
         document.documentElement.style.fontSize = `${safeZoom}%`;
     };
 
-    let setupAppVersion = async () => {
-        const versionElement = document.querySelector('#app-version');
-        if (!versionElement) {
-            return;
-        }
-
-        const fallback = versionElement.textContent ? versionElement.textContent.trim() : 'v1.0.1';
-        versionElement.textContent = fallback.startsWith('v') ? fallback : `v${fallback}`;
-
-        if (!window.lectrDesktop || typeof window.lectrDesktop.getAppVersion !== 'function') {
-            return;
-        }
-
-        try {
-            const version = await window.lectrDesktop.getAppVersion();
-            if (typeof version === 'string' && version.trim()) {
-                versionElement.textContent = `v${version.trim()}`;
-            }
-        } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error('Failed to load app version', error);
-        }
-    };
-
     let initLanguageSetting = (language) => {
         const languageSelect = document.querySelector('#language-select');
-        const safeLanguage = language === 'ru' ? 'ru' : 'en';
-        currentLanguage = safeLanguage;
-        if (languageSelect) {
-            languageSelect.value = safeLanguage;
-            languageSelect.addEventListener('change', (event) => {
-                const selected = event.currentTarget.value === 'ru' ? 'ru' : 'en';
-                currentLanguage = selected;
-                saveLanguageSettings(selected);
-                applyLocalization();
-            });
+        setLanguagePreference = (nextLanguage, { persist = true } = {}) => {
+            const safeLanguage = nextLanguage === 'ru' ? 'ru' : 'en';
+            currentLanguage = safeLanguage;
+            if (languageSelect) {
+                languageSelect.value = safeLanguage;
+            }
+            if (persist) {
+                saveLanguageSettings(safeLanguage);
+            }
+            applyLocalization();
+            refreshFormatToolbarState();
+        };
+
+        setLanguagePreference(language, { persist: false });
+
+        if (!languageSelect || languageSelect.dataset.boundChange === '1') {
+            return;
         }
-        applyLocalization();
+        languageSelect.dataset.boundChange = '1';
+        languageSelect.addEventListener('change', (event) => {
+            const selected = event.currentTarget.value === 'ru' ? 'ru' : 'en';
+            setLanguagePreference(selected, { persist: true });
+        });
     };
 
     let initZoomSetting = (zoomValue) => {
@@ -2650,28 +3464,28 @@ ${"`"}${"`"}${"`"}
 
     let initPreviewEditMode = (enabled, editor) => {
         const checkbox = document.querySelector('#preview-edit-checkbox');
-        previewEditMode = enabled === true;
-        setPreviewEditableState(previewEditMode);
-        setPreviewEditLayout(previewEditMode);
-        if (previewEditMode) {
-            const output = getPreviewOutputElement();
-            if (output) {
-                output.focus();
-            }
-        }
-
-        if (!checkbox) {
-            return;
-        }
-
-        checkbox.checked = previewEditMode;
-        checkbox.addEventListener('change', (event) => {
-            const checked = event.currentTarget.checked === true;
+        setPreviewEditModePreference = (nextEnabled, {
+            persist = true,
+            syncRender = true,
+            focusOutput = true
+        } = {}) => {
+            const checked = nextEnabled === true;
             previewEditMode = checked;
-            savePreviewEditModeSetting(checked);
+
+            if (checkbox) {
+                checkbox.checked = checked;
+            }
+
+            if (persist) {
+                savePreviewEditModeSetting(checked);
+            }
+
             setPreviewEditableState(checked);
             setPreviewEditLayout(checked);
-            if (checked) {
+            refreshTopImmersionState();
+            refreshFormatToolbarState();
+
+            if (checked && focusOutput) {
                 const output = getPreviewOutputElement();
                 if (output) {
                     output.focus();
@@ -2683,14 +3497,181 @@ ${"`"}${"`"}${"`"}
                 previewEditSyncTimer = null;
             }
 
+            if (!syncRender) {
+                return;
+            }
+
             if (!checked) {
                 const value = editor.getValue();
                 scheduleConvert(value);
                 return;
             }
-
             scheduleConvert(editor.getValue());
+        };
+
+        setPreviewEditModePreference(enabled, {
+            persist: false,
+            syncRender: false,
+            focusOutput: false
         });
+
+        if (!checkbox || checkbox.dataset.boundChange === '1') {
+            return;
+        }
+        checkbox.dataset.boundChange = '1';
+        checkbox.addEventListener('change', (event) => {
+            const checked = event.currentTarget.checked === true;
+            setPreviewEditModePreference(checked, {
+                persist: true,
+                syncRender: true,
+                focusOutput: true
+            });
+        });
+    };
+
+    let setupFirstRunOnboarding = (editor) => {
+        const overlay = document.querySelector('#onboarding-overlay');
+        const stepLabel = document.querySelector('#onboarding-step-label');
+        const backButton = document.querySelector('#onboarding-back-button');
+        const nextButton = document.querySelector('#onboarding-next-button');
+        const stepElements = Array.from(document.querySelectorAll('[data-onboarding-step]'));
+        const languageButtons = Array.from(document.querySelectorAll('[data-onboarding-language]'));
+        const modeButtons = Array.from(document.querySelectorAll('[data-onboarding-mode]'));
+        const themeButtons = Array.from(document.querySelectorAll('[data-onboarding-theme]'));
+        if (!overlay || !stepLabel || !backButton || !nextButton || stepElements.length === 0) {
+            return;
+        }
+
+        const onboardingState = loadOnboardingState();
+        if (onboardingState && onboardingState.completed === true) {
+            return;
+        }
+
+        const state = {
+            language: currentLanguage === 'ru' ? 'ru' : 'en',
+            mode: previewEditMode ? 'simple' : 'advanced',
+            theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
+        };
+        let activeStep = 0;
+        const totalSteps = stepElements.length;
+
+        const renderStepButtons = () => {
+            backButton.disabled = activeStep === 0;
+            nextButton.textContent = activeStep === totalSteps - 1 ? t('onboardingFinish') : t('onboardingNext');
+            stepLabel.textContent = t('onboardingStep', {
+                step: activeStep + 1,
+                total: totalSteps
+            });
+        };
+
+        const renderSteps = () => {
+            stepElements.forEach((stepElement, index) => {
+                stepElement.classList.toggle('active', index === activeStep);
+            });
+            renderStepButtons();
+        };
+
+        const markActiveChoice = (buttons, key, expectedValue) => {
+            buttons.forEach((button) => {
+                const currentValue = button.getAttribute(key);
+                button.classList.toggle('active', currentValue === expectedValue);
+            });
+        };
+
+        const renderChoices = () => {
+            markActiveChoice(languageButtons, 'data-onboarding-language', state.language);
+            markActiveChoice(modeButtons, 'data-onboarding-mode', state.mode);
+            markActiveChoice(themeButtons, 'data-onboarding-theme', state.theme);
+        };
+
+        const closeOverlay = () => {
+            overlay.classList.remove('open');
+            overlay.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('onboarding-open');
+            window.setTimeout(() => {
+                overlay.hidden = true;
+            }, 210);
+        };
+
+        const finishOnboarding = () => {
+            setLanguagePreference(state.language, { persist: true });
+            setPreviewEditModePreference(state.mode === 'simple', {
+                persist: true,
+                syncRender: true,
+                focusOutput: state.mode === 'simple'
+            });
+            applyThemePreference(state.theme === 'dark', { persist: true });
+            saveOnboardingState({
+                completed: true,
+                language: state.language,
+                mode: state.mode,
+                theme: state.theme,
+                completedAt: Date.now()
+            });
+            closeOverlay();
+        };
+
+        refreshOnboardingLocalization = () => {
+            if (overlay.hidden) {
+                return;
+            }
+            renderStepButtons();
+        };
+
+        languageButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const nextLanguage = button.getAttribute('data-onboarding-language') === 'ru' ? 'ru' : 'en';
+                state.language = nextLanguage;
+                renderChoices();
+                setLanguagePreference(nextLanguage, { persist: false });
+            });
+        });
+
+        modeButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const nextMode = button.getAttribute('data-onboarding-mode') === 'simple' ? 'simple' : 'advanced';
+                state.mode = nextMode;
+                renderChoices();
+                setPreviewEditModePreference(nextMode === 'simple', {
+                    persist: false,
+                    syncRender: true,
+                    focusOutput: false
+                });
+            });
+        });
+
+        themeButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const nextTheme = button.getAttribute('data-onboarding-theme') === 'dark' ? 'dark' : 'light';
+                state.theme = nextTheme;
+                renderChoices();
+                applyThemePreference(nextTheme === 'dark', { persist: false });
+            });
+        });
+
+        backButton.addEventListener('click', () => {
+            activeStep = Math.max(0, activeStep - 1);
+            renderSteps();
+        });
+
+        nextButton.addEventListener('click', () => {
+            if (activeStep >= totalSteps - 1) {
+                finishOnboarding();
+                return;
+            }
+            activeStep += 1;
+            renderSteps();
+        });
+
+        closeOpenMenus();
+        overlay.hidden = false;
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('onboarding-open');
+        window.requestAnimationFrame(() => {
+            overlay.classList.add('open');
+        });
+        renderChoices();
+        renderSteps();
     };
 
     let setupDivider = () => {
@@ -2795,7 +3776,9 @@ ${"`"}${"`"}${"`"}
                 dirty: savedTab.dirty === true,
                 lastSavedContent: typeof savedTab.lastSavedContent === 'string'
                     ? savedTab.lastSavedContent
-                    : (savedTab.content || '')
+                    : (savedTab.content || ''),
+                editorScrollTop: Number.isFinite(savedTab.editorScrollTop) ? savedTab.editorScrollTop : 0,
+                previewScrollTop: Number.isFinite(savedTab.previewScrollTop) ? savedTab.previewScrollTop : 0
             });
             tabs.push(restoredTab);
             if (savedTab.id) {
@@ -2810,6 +3793,9 @@ ${"`"}${"`"}${"`"}
         renderTabs();
         presetValue(restoredContent);
         saveLastContent(restoredContent);
+        window.requestAnimationFrame(() => {
+            applyTabScrollState(activeTab);
+        });
     } else {
         const initialContent = lastContent || getDefaultInput();
         const initialTab = createTab({
@@ -2823,10 +3809,13 @@ ${"`"}${"`"}${"`"}
         activeTabId = initialTab.id;
         renderTabs();
         presetValue(initialContent);
+        window.requestAnimationFrame(() => {
+            applyTabScrollState(initialTab);
+        });
     }
 
     setupHeaderMenus();
-    setupAppVersion();
+    setupAboutDialog();
     setupOpenButton();
     setupPreviewLinkNavigation();
     setupSaveButton(editor);
@@ -2837,9 +3826,6 @@ ${"`"}${"`"}${"`"}
     setupFormatToolbar(editor);
     setupGlobalShortcuts(editor);
 
-    let scrollBarSettings = loadScrollBarSettings() || false;
-    initScrollBarSync(scrollBarSettings);
-
     // initialize theme (dark/light)
     let themeSettings = loadThemeSettings();
     // normalize to boolean (saved value may be string or boolean)
@@ -2849,8 +3835,13 @@ ${"`"}${"`"}${"`"}
         themeSettings = false;
     }
     initThemeToggle(themeSettings);
+    setupFirstRunOnboarding(editor);
 
     setupDivider();
+    applyEditorViewportTopInset(editor);
+    window.addEventListener('resize', () => {
+        applyEditorViewportTopInset(editor);
+    });
 
     window.addEventListener('beforeunload', () => {
         if (previewEditSyncTimer !== null) {
