@@ -42,9 +42,35 @@
     },
     "mac": {
       "target": [
-        "dmg"
+        "dmg",
+        "zip"
       ]
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "northqw",
+        "repo": "Lectr"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:northqw/Lectr.git"
+  },
+  "bugs": {
+    "url": "https://github.com/northqw/Lectr/issues"
+  },
+  "homepage": "https://github.com/northqw/Lectr#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dompurify": "^3.2.5",
+    "electron-updater": "^6.6.2",
+    "github-markdown-css": "^5.8.1",
+    "marked": "^15.0.7",
+    "monaco-editor": "^0.52.2"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
@@ -52,11 +78,5 @@
     "electron-builder": "^26.7.0",
     "vite": "^6.4.1",
     "wait-on": "^8.0.5"
-  },
-  "dependencies": {
-    "dompurify": "^3.2.5",
-    "github-markdown-css": "^5.8.1",
-    "marked": "^15.0.7",
-    "monaco-editor": "^0.52.2"
   }
 }

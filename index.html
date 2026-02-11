@@ -8,7 +8,7 @@
     <meta name="description" content="This is the online markdown editor with live preview.">
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
     >
 
     <script>
@@ -36,22 +36,17 @@
     </script>
     <link rel="stylesheet" type="text/css" href="css/style.css">
     <link rel="icon" type="image/png" href="favicon.png">
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script type="module" src="./src/main.js"></script>
     <title>Lectr</title>
   </head>
 
   <body>
+    <button type="button" id="brand-button" aria-label="About Lectr">
+      <span id="brand-wordmark">Lectr</span>
+    </button>
 
     <header>
         <div id="header-content">
-            <div id="brand">
-              <button type="button" id="brand-button" aria-label="About Lectr">
-                <img class="brand-logo brand-logo-light" src="image/lectr-logo-light.svg" alt="Lectr">
-                <img class="brand-logo brand-logo-dark" src="image/lectr-logo-dark.svg" alt="Lectr">
-              </button>
-            </div>
-
             <div id="format-toolbar" aria-label="Formatting">
               <button type="button" class="format-button" data-format="bold" title="Bold" aria-label="Bold">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h7a4 4 0 0 1 0 8H7V4zm0 8h8a4 4 0 0 1 0 8H7v-8z"/></svg>
@@ -173,8 +168,7 @@
       <div class="about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title">
         <button type="button" id="about-close-button" class="about-close-button" aria-label="Close">×</button>
         <div class="about-logo-wrap" aria-hidden="true">
-          <img class="about-logo about-logo-light" src="image/lectr-logo-light.svg" alt="">
-          <img class="about-logo about-logo-dark" src="image/lectr-logo-dark.svg" alt="">
+          <span class="about-wordmark">Lectr</span>
         </div>
         <h2 id="about-title">About Lectr</h2>
         <dl class="about-info-list">

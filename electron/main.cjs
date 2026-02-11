@@ -1,6 +1,7 @@
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 
 // Reduce Chromium/GTK noise in terminal logs on Linux builds.
 app.commandLine.appendSwitch('disable-logging');
@@ -8,6 +9,8 @@ app.commandLine.appendSwitch('log-level', '3');
 
 const devServerUrl = process.env.ELECTRON_START_URL;
 const supportedTextExtensions = ['.md', '.markdown', '.txt'];
+const safeExternalProtocols = new Set(['http:', 'https:', 'mailto:', 'tel:']);
+let isUpdateDownloadInProgress = false;
 
 const toDecodedPath = (input) => {
     try {
@@ -90,6 +93,26 @@ const findExistingLinkedFilePath = async (candidatePath) => {
     return null;
 };
 
+const openExternalIfSafe = (rawUrl) => {
+    if (typeof rawUrl !== 'string' || !rawUrl.trim()) {
+        return false;
+    }
+
+    let parsed;
+    try {
+        parsed = new URL(rawUrl);
+    } catch (_error) {
+        return false;
+    }
+
+    if (!safeExternalProtocols.has(parsed.protocol)) {
+        return false;
+    }
+
+    shell.openExternal(parsed.toString());
+    return true;
+};
+
 function createWindow() {
     const mainWindow = new BrowserWindow({
         width: 1280,
@@ -117,7 +140,7 @@ function createWindow() {
     }
 
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-        shell.openExternal(url);
+        openExternalIfSafe(url);
         return { action: 'deny' };
     });
 
@@ -125,14 +148,90 @@ function createWindow() {
         const currentUrl = mainWindow.webContents.getURL();
         if (url !== currentUrl) {
             event.preventDefault();
-            shell.openExternal(url);
+            openExternalIfSafe(url);
         }
     });
 
     mainWindow.webContents.on('will-attach-webview', (event) => {
         event.preventDefault();
     });
+
+    return mainWindow;
 }
+
+const showInfoDialog = (mainWindow, options) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        return dialog.showMessageBox(mainWindow, options);
+    }
+
+    return dialog.showMessageBox(options);
+};
+
+const initializeAutoUpdates = (mainWindow) => {
+    if (!app.isPackaged) {
+        return;
+    }
+
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('error', (error) => {
+        // eslint-disable-next-line no-console
+        console.error('Auto-update error', error);
+    });
+
+    autoUpdater.on('update-available', () => {
+        void (async () => {
+            if (isUpdateDownloadInProgress) {
+                return;
+            }
+
+            const result = await showInfoDialog(mainWindow, {
+                type: 'info',
+                title: 'Update available',
+                message: 'A new Lectr version is available.',
+                detail: 'Download and install it now?',
+                buttons: ['Download', 'Later'],
+                defaultId: 0,
+                cancelId: 1
+            });
+
+            if (result.response === 0) {
+                isUpdateDownloadInProgress = true;
+                await autoUpdater.downloadUpdate();
+            }
+        })();
+    });
+
+    autoUpdater.on('update-not-available', () => {
+        isUpdateDownloadInProgress = false;
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+        isUpdateDownloadInProgress = false;
+        void (async () => {
+            const result = await showInfoDialog(mainWindow, {
+                type: 'info',
+                title: 'Update ready',
+                message: 'The update has been downloaded.',
+                detail: 'Restart now to install it?',
+                buttons: ['Restart', 'Later'],
+                defaultId: 0,
+                cancelId: 1
+            });
+
+            if (result.response === 0) {
+                autoUpdater.quitAndInstall();
+            }
+        })();
+    });
+
+    autoUpdater.on('update-cancelled', () => {
+        isUpdateDownloadInProgress = false;
+    });
+
+    void autoUpdater.checkForUpdates();
+};
 
 ipcMain.handle('lectr:open-markdown-file', async () => {
     const result = await dialog.showOpenDialog({
@@ -345,7 +444,8 @@ ipcMain.handle('lectr:export-preview-pdf', async (_event, payload) => {
 });
 
 app.whenReady().then(() => {
-    createWindow();
+    const mainWindow = createWindow();
+    initializeAutoUpdates(mainWindow);
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {

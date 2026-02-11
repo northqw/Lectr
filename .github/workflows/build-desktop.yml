@@ -7,7 +7,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -36,15 +36,21 @@ jobs:
 
       - name: Build desktop package
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         shell: bash
         run: |
+          publish_mode=never
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            publish_mode=always
+          fi
+
           if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            npx electron-builder --linux AppImage --publish never
+            npx electron-builder --linux AppImage --publish "${publish_mode}"
           elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            npx electron-builder --win nsis --publish never
+            npx electron-builder --win nsis --publish "${publish_mode}"
           else
-            npx electron-builder --mac dmg --publish never
+            npx electron-builder --mac dmg zip --publish "${publish_mode}"
           fi
 
       - name: Collect distributables only

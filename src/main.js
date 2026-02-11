@@ -1,8 +1,7 @@
-import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/+esm';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 
-const init = () => {
+const init = async () => {
     let closeOpenMenus = () => { };
     let tabs = [];
     let activeTabId = null;
@@ -29,6 +28,8 @@ const init = () => {
     let setLanguagePreference = () => { };
     let setPreviewEditModePreference = () => { };
     let applyThemePreference = () => { };
+    let monaco = null;
+    let monacoLoadPromise = null;
     const immersionScrollThresholdPx = 18;
     const editorTopInsetExtraPx = 0;
 
@@ -40,6 +41,9 @@ const init = () => {
     const localStorageTabsStateKey = 'tabs_state';
     const localStoragePreviewEditModeKey = 'preview_edit_mode_settings';
     const localStorageOnboardingKey = 'onboarding_v1';
+    const externalLinkPattern = /^(?:https?:|mailto:|tel:)/i;
+    const blockedHrefPattern = /^(?:javascript:|vbscript:|data:|file:)/i;
+    let isDomPurifyConfigured = false;
     const translations = {
         en: {
             file: 'File',
@@ -436,6 +440,24 @@ ${"`"}${"`"}${"`"}
 
     const getActiveTab = () => tabs.find((tab) => tab.id === activeTabId) || null;
 
+    const updateTabContentState = (tab, content, { renderOnDirtyChange = true } = {}) => {
+        if (!tab) {
+            return false;
+        }
+
+        const nextContent = typeof content === 'string' ? content : '';
+        const wasDirty = tab.dirty === true;
+        tab.content = nextContent;
+        tab.dirty = nextContent !== tab.lastSavedContent;
+
+        const dirtyChanged = tab.dirty !== wasDirty;
+        if (dirtyChanged && renderOnDirtyChange) {
+            renderTabs();
+        }
+
+        return dirtyChanged;
+    };
+
     const getWorkspaceTopOffsetPx = () => {
         const rootStyles = window.getComputedStyle(document.documentElement);
         const rawValue = rootStyles.getPropertyValue('--ui-workspace-top-offset').trim();
@@ -444,6 +466,21 @@ ${"`"}${"`"}${"`"}
             return parsed;
         }
         return 120;
+    };
+
+    const loadMonaco = async () => {
+        if (monaco) {
+            return monaco;
+        }
+
+        if (!monacoLoadPromise) {
+            monacoLoadPromise = import('monaco-editor/esm/vs/editor/editor.api').then((module) => {
+                monaco = module;
+                return module;
+            });
+        }
+
+        return monacoLoadPromise;
     };
 
     const getEditorPaddingOptions = () => ({
@@ -526,7 +563,12 @@ ${"`"}${"`"}${"`"}
         }
     }
 
-    let setupEditor = () => {
+    let setupEditor = async () => {
+        await loadMonaco();
+        if (!monaco || !monaco.editor) {
+            throw new Error('Monaco failed to initialize');
+        }
+
         let editor = monaco.editor.create(document.querySelector('#editor'), {
             fontSize: 14,
             language: 'markdown',
@@ -550,9 +592,7 @@ ${"`"}${"`"}${"`"}
             if (!suppressEditorChange) {
                 const activeTab = getActiveTab();
                 if (activeTab) {
-                    activeTab.content = value;
-                    activeTab.dirty = value !== activeTab.lastSavedContent;
-                    renderTabs();
+                    updateTabContentState(activeTab, value);
                 }
                 saveLastContent(value);
             }
@@ -633,7 +673,7 @@ ${"`"}${"`"}${"`"}
             requestAnimationFrame(() => {
                 syncFromPreview = false;
             });
-        });
+        }, { passive: true });
     };
 
     let setPreviewEditableState = (enabled) => {
@@ -1007,9 +1047,7 @@ ${"`"}${"`"}${"`"}
         suppressEditorChange = false;
         syncingFromPreviewEdit = false;
 
-        activeTab.content = markdown;
-        activeTab.dirty = markdown !== activeTab.lastSavedContent;
-        renderTabs();
+        updateTabContentState(activeTab, markdown);
         saveLastContent(markdown);
         lastRenderedMarkdown = markdown;
     };
@@ -1066,6 +1104,45 @@ ${"`"}${"`"}${"`"}
         });
     };
 
+    let ensureDomPurifyConfiguration = () => {
+        if (isDomPurifyConfigured) {
+            return;
+        }
+
+        DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+            if (!(node instanceof Element) || node.tagName.toLowerCase() !== 'a') {
+                return;
+            }
+
+            const href = (node.getAttribute('href') || '').trim();
+            if (!href || blockedHrefPattern.test(href)) {
+                node.removeAttribute('href');
+                node.removeAttribute('target');
+                node.removeAttribute('rel');
+                return;
+            }
+
+            if (externalLinkPattern.test(href)) {
+                node.setAttribute('target', '_blank');
+                node.setAttribute('rel', 'noopener noreferrer');
+                return;
+            }
+
+            node.removeAttribute('target');
+            node.removeAttribute('rel');
+        });
+
+        isDomPurifyConfigured = true;
+    };
+
+    const sanitizeRenderedMarkdown = (html) => {
+        ensureDomPurifyConfiguration();
+        return DOMPurify.sanitize(html, {
+            USE_PROFILES: { html: true },
+            FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select']
+        });
+    };
+
     // Render markdown text as html
     let renderMarkdown = (markdown) => {
         let options = {
@@ -1073,7 +1150,7 @@ ${"`"}${"`"}${"`"}
             mangle: false
         };
         let html = marked.parse(markdown, options);
-        let sanitized = DOMPurify.sanitize(html);
+        let sanitized = sanitizeRenderedMarkdown(html);
         const output = document.querySelector('#output');
         if (!output) {
             return;
@@ -1117,9 +1194,7 @@ ${"`"}${"`"}${"`"}
         }
         const resetContent = getDefaultInput();
         if (activeTab) {
-            activeTab.content = resetContent;
-            activeTab.dirty = activeTab.content !== activeTab.lastSavedContent;
-            renderTabs();
+            updateTabContentState(activeTab, resetContent);
         }
         presetValue(resetContent);
         document.querySelectorAll('.column').forEach((element) => {
@@ -1277,8 +1352,7 @@ ${"`"}${"`"}${"`"}
         if (!activeTab || !editor) {
             return null;
         }
-        activeTab.content = editor.getValue();
-        activeTab.dirty = activeTab.content !== activeTab.lastSavedContent;
+        updateTabContentState(activeTab, editor.getValue(), { renderOnDirtyChange: false });
         return activeTab;
     };
 
@@ -1317,6 +1391,39 @@ ${"`"}${"`"}${"`"}
     // ----- export preview -----
 
     let exportLightCssPromise = null;
+    let html2PdfLoadPromise = null;
+
+    const ensureHtml2PdfLoaded = () => {
+        if (typeof window.html2pdf === 'function') {
+            return Promise.resolve(window.html2pdf);
+        }
+
+        if (html2PdfLoadPromise) {
+            return html2PdfLoadPromise;
+        }
+
+        html2PdfLoadPromise = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+            script.crossOrigin = 'anonymous';
+            script.referrerPolicy = 'no-referrer';
+            script.integrity = 'sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==';
+            script.onload = () => {
+                if (typeof window.html2pdf === 'function') {
+                    resolve(window.html2pdf);
+                    return;
+                }
+                reject(new Error('html2pdf failed to initialize'));
+            };
+            script.onerror = () => reject(new Error('Failed to load html2pdf'));
+            document.head.appendChild(script);
+        }).catch((error) => {
+            html2PdfLoadPromise = null;
+            throw error;
+        });
+
+        return html2PdfLoadPromise;
+    };
 
     let getLightMarkdownCss = () => {
         if (exportLightCssPromise) {
@@ -1375,12 +1482,7 @@ ${"`"}${"`"}${"`"}
             return;
         }
 
-        if (typeof window.html2pdf !== 'function') {
-            window.alert('PDF export is not available yet. Please try again in a moment.');
-            return;
-        }
-
-        getLightMarkdownCss().then((lightCss) => {
+        Promise.all([getLightMarkdownCss(), ensureHtml2PdfLoaded()]).then(([lightCss, html2pdf]) => {
             const options = {
                 margin: 10,
                 filename: 'markdown-preview.pdf',
@@ -1419,7 +1521,7 @@ ${"`"}${"`"}${"`"}
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            window.html2pdf()
+            html2pdf()
                 .set(options)
                 .from(outputElement)
                 .save()
@@ -1427,6 +1529,10 @@ ${"`"}${"`"}${"`"}
                     // eslint-disable-next-line no-console
                     console.error('Failed to export PDF', error);
                 });
+        }).catch((error) => {
+            // eslint-disable-next-line no-console
+            console.error('Failed to prepare PDF export', error);
+            window.alert('PDF export is not available yet. Please try again in a moment.');
         });
     };
 
@@ -1550,8 +1656,7 @@ ${"`"}${"`"}${"`"}
         }
 
         if (tab.id === activeTabId && editor) {
-            tab.content = editor.getValue();
-            tab.dirty = tab.content !== tab.lastSavedContent;
+            updateTabContentState(tab, editor.getValue(), { renderOnDirtyChange: false });
         }
 
         if (tab.dirty) {
@@ -2362,7 +2467,7 @@ ${"`"}${"`"}${"`"}
                 return;
             }
 
-            if (/^(?:https?:|mailto:|tel:|data:|blob:)/i.test(href)) {
+            if (externalLinkPattern.test(href) || /^(?:data:|blob:)/i.test(href)) {
                 return;
             }
 
@@ -3752,7 +3857,7 @@ ${"`"}${"`"}${"`"}
 
     // ----- entry point -----
     let lastContent = loadLastContent();
-    let editor = setupEditor();
+    let editor = await setupEditor();
     setupPreviewScrollSync(editor);
     setupPreviewEditSync(editor);
     setupPreviewSelectionTracking();
@@ -3856,6 +3961,9 @@ ${"`"}${"`"}${"`"}
     });
 };
 
-window.addEventListener("load", () => {
-    init();
+window.addEventListener('load', () => {
+    init().catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error('Failed to initialize app', error);
+    });
 });
