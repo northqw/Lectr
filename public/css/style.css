@@ -412,6 +412,24 @@ footer {
   padding: 8px 16px 16px 16px;
 }
 
+#output.preview-editable {
+  cursor: text;
+}
+
+#output.preview-editable:focus {
+  outline: 1px dashed #52b496;
+  outline-offset: 6px;
+}
+
+body.preview-edit-mode #edit,
+body.preview-edit-mode #split-divider {
+  display: none !important;
+}
+
+body.preview-edit-mode #preview {
+  width: 100% !important;
+}
+
 .column {
   width: 50%;
   padding: 0;

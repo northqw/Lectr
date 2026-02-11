@@ -16,6 +16,12 @@ const init = () => {
     let pendingMarkdownForRender = '';
     let renderFrameId = null;
     let lastRenderedMarkdown = null;
+    let previewEditMode = false;
+    let previewEditSyncTimer = null;
+    let syncingFromPreviewEdit = false;
+    let previewSavedRange = null;
+    let previousEditPaneWidth = '';
+    let previousPreviewPaneWidth = '';
 
     const localStorageNamespace = 'com.lectr';
     const localStorageKey = 'last_state';
@@ -24,6 +30,7 @@ const init = () => {
     const localStorageLanguageKey = 'language_settings';
     const localStorageZoomKey = 'ui_zoom_settings';
     const localStorageTabsStateKey = 'tabs_state';
+    const localStoragePreviewEditModeKey = 'preview_edit_mode_settings';
     const translations = {
         en: {
             file: 'File',
@@ -37,6 +44,7 @@ const init = () => {
             reset: 'Reset',
             syncScroll: 'Sync scroll',
             darkMode: 'Dark mode',
+            previewEdit: 'Edit in preview',
             language: 'Language',
             scale: 'Scale',
             newTab: 'New tab',
@@ -47,6 +55,7 @@ const init = () => {
             saveAsPrompt: 'Save as',
             untitledBase: 'Untitled',
             saved: 'Saved',
+            linkedFileNotFound: 'Cannot open linked file from preview.',
             format: {
                 bold: 'Bold',
                 italic: 'Italic',
@@ -72,6 +81,7 @@ const init = () => {
             reset: 'Сбросить',
             syncScroll: 'Синхр. скролл',
             darkMode: 'Тёмная тема',
+            previewEdit: 'Правка в preview',
             language: 'Язык',
             scale: 'Масштаб',
             newTab: 'Новая вкладка',
@@ -82,6 +92,7 @@ const init = () => {
             saveAsPrompt: 'Сохранить как',
             untitledBase: 'Без имени',
             saved: 'Сохранено',
+            linkedFileNotFound: 'Не удалось открыть связанный файл из preview.',
             format: {
                 bold: 'Жирный',
                 italic: 'Курсив',
@@ -283,6 +294,7 @@ ${"`"}${"`"}${"`"}
             ['reset-button', 'reset'],
             ['sync-scroll-label', 'syncScroll'],
             ['theme-label', 'darkMode'],
+            ['preview-edit-label', 'previewEdit'],
             ['language-label', 'language'],
             ['zoom-label', 'scale']
         ];
@@ -364,6 +376,9 @@ ${"`"}${"`"}${"`"}
                 }
                 saveLastContent(value);
             }
+            if (syncingFromPreviewEdit) {
+                return;
+            }
             scheduleConvert(value);
         });
 
@@ -427,6 +442,381 @@ ${"`"}${"`"}${"`"}
         });
     };
 
+    let setPreviewEditableState = (enabled) => {
+        const output = document.querySelector('#output');
+        if (!output) {
+            return;
+        }
+
+        if (enabled) {
+            output.setAttribute('contenteditable', 'true');
+            output.setAttribute('spellcheck', 'true');
+            output.classList.add('preview-editable');
+            return;
+        }
+
+        output.removeAttribute('contenteditable');
+        output.removeAttribute('spellcheck');
+        output.classList.remove('preview-editable');
+    };
+
+    let setPreviewEditLayout = (enabled) => {
+        const body = document.body;
+        const editPane = document.querySelector('#edit');
+        const previewPane = document.querySelector('#preview');
+        if (!body || !editPane || !previewPane) {
+            return;
+        }
+
+        if (enabled) {
+            previousEditPaneWidth = editPane.style.width || '';
+            previousPreviewPaneWidth = previewPane.style.width || '';
+            body.classList.add('preview-edit-mode');
+            previewPane.style.width = '100%';
+            return;
+        }
+
+        body.classList.remove('preview-edit-mode');
+        editPane.style.width = previousEditPaneWidth;
+        previewPane.style.width = previousPreviewPaneWidth;
+    };
+
+    let getPreviewOutputElement = () => document.querySelector('#output');
+
+    let isRangeInsideElement = (range, element) => {
+        if (!range || !element) {
+            return false;
+        }
+        return element.contains(range.commonAncestorContainer);
+    };
+
+    let savePreviewSelectionRange = () => {
+        const output = getPreviewOutputElement();
+        const selection = window.getSelection();
+        if (!output || !selection || selection.rangeCount === 0) {
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        if (!isRangeInsideElement(range, output)) {
+            return;
+        }
+        previewSavedRange = range.cloneRange();
+    };
+
+    let restorePreviewSelectionRange = () => {
+        const output = getPreviewOutputElement();
+        const selection = window.getSelection();
+        if (!output || !selection) {
+            return false;
+        }
+
+        if (previewSavedRange && isRangeInsideElement(previewSavedRange, output)) {
+            selection.removeAllRanges();
+            selection.addRange(previewSavedRange);
+            return true;
+        }
+
+        const range = document.createRange();
+        range.selectNodeContents(output);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        previewSavedRange = range.cloneRange();
+        return true;
+    };
+
+    let executePreviewCommand = (command, value = null) => {
+        const output = getPreviewOutputElement();
+        if (!output || !previewEditMode) {
+            return false;
+        }
+
+        output.focus();
+        restorePreviewSelectionRange();
+        const success = value === null
+            ? document.execCommand(command)
+            : document.execCommand(command, false, value);
+        savePreviewSelectionRange();
+        return success;
+    };
+
+    let insertHtmlIntoPreviewSelection = (html) => {
+        const output = getPreviewOutputElement();
+        if (!output || !previewEditMode) {
+            return false;
+        }
+
+        output.focus();
+        restorePreviewSelectionRange();
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            return false;
+        }
+
+        const range = selection.getRangeAt(0);
+        if (!isRangeInsideElement(range, output)) {
+            return false;
+        }
+
+        const fragment = range.createContextualFragment(html);
+        const lastNode = fragment.lastChild;
+        range.deleteContents();
+        range.insertNode(fragment);
+
+        if (lastNode) {
+            const afterRange = document.createRange();
+            afterRange.setStartAfter(lastNode);
+            afterRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(afterRange);
+            previewSavedRange = afterRange.cloneRange();
+            return true;
+        }
+
+        savePreviewSelectionRange();
+        return true;
+    };
+
+    let escapeHtml = (text) => String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    let escapeMarkdownText = (text) => text
+        .replace(/\\/g, '\\\\')
+        .replace(/([`*_{}\[\]()#+\-.!|>])/g, '\\$1');
+
+    let inlineNodeToMarkdown = (node) => {
+        if (!node) {
+            return '';
+        }
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            return node.textContent || '';
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return '';
+        }
+
+        const element = node;
+        const tag = element.tagName.toLowerCase();
+        const childrenText = Array.from(element.childNodes).map((child) => inlineNodeToMarkdown(child)).join('');
+
+        if (tag === 'br') {
+            return '\n';
+        }
+        if (tag === 'strong' || tag === 'b') {
+            return `**${childrenText}**`;
+        }
+        if (tag === 'em' || tag === 'i') {
+            return `*${childrenText}*`;
+        }
+        if (tag === 'code' && element.parentElement?.tagName.toLowerCase() !== 'pre') {
+            return `\`${childrenText}\``;
+        }
+        if (tag === 'a') {
+            const href = element.getAttribute('href') || '';
+            const label = childrenText || href;
+            return `[${label}](${href})`;
+        }
+
+        return childrenText;
+    };
+
+    let inlineElementToMarkdown = (element) => {
+        const raw = Array.from(element.childNodes).map((node) => inlineNodeToMarkdown(node)).join('');
+        return raw
+            .replace(/\u00a0/g, ' ')
+            .replace(/[ \t]+\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+    };
+
+    let listItemToMarkdown = (itemElement, index, ordered) => {
+        const clone = itemElement.cloneNode(true);
+        clone.querySelectorAll('ul,ol').forEach((nestedList) => nestedList.remove());
+        const itemText = inlineElementToMarkdown(clone) || ' ';
+        const prefix = ordered ? `${index + 1}. ` : '- ';
+        return `${prefix}${itemText}`;
+    };
+
+    let tableToMarkdown = (tableElement) => {
+        const rowElements = Array.from(tableElement.querySelectorAll('tr'));
+        if (rowElements.length === 0) {
+            return '';
+        }
+
+        const rows = rowElements.map((rowElement) => {
+            const cells = Array.from(rowElement.querySelectorAll('th,td'))
+                .map((cell) => inlineElementToMarkdown(cell).replace(/\|/g, '\\|').trim());
+            return cells;
+        }).filter((cells) => cells.length > 0);
+
+        if (rows.length === 0) {
+            return '';
+        }
+
+        const maxColumns = rows.reduce((max, row) => Math.max(max, row.length), 0);
+        const normalizedRows = rows.map((row) => {
+            const filled = [...row];
+            while (filled.length < maxColumns) {
+                filled.push('');
+            }
+            return filled;
+        });
+
+        const header = normalizedRows[0];
+        const separator = new Array(maxColumns).fill('---');
+        const body = normalizedRows.slice(1);
+
+        const asRow = (cells) => `| ${cells.join(' | ')} |`;
+        const lines = [asRow(header), asRow(separator)];
+        body.forEach((row) => lines.push(asRow(row)));
+        return lines.join('\n');
+    };
+
+    let blockToMarkdown = (node) => {
+        if (!node) {
+            return '';
+        }
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = (node.textContent || '').trim();
+            return text ? escapeMarkdownText(text) : '';
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return '';
+        }
+
+        const element = node;
+        const tag = element.tagName.toLowerCase();
+
+        if (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') {
+            const level = Number.parseInt(tag.slice(1), 10);
+            return `${'#'.repeat(level)} ${inlineElementToMarkdown(element)}`.trimEnd();
+        }
+
+        if (tag === 'p') {
+            return inlineElementToMarkdown(element);
+        }
+
+        if (tag === 'blockquote') {
+            const quotedBlocks = Array.from(element.children).map((child) => blockToMarkdown(child)).filter(Boolean);
+            const quoted = quotedBlocks.length > 0 ? quotedBlocks.join('\n\n') : inlineElementToMarkdown(element);
+            return quoted
+                .split('\n')
+                .map((line) => `> ${line}`)
+                .join('\n');
+        }
+
+        if (tag === 'ul') {
+            const items = Array.from(element.children)
+                .filter((child) => child.tagName && child.tagName.toLowerCase() === 'li')
+                .map((item, index) => listItemToMarkdown(item, index, false));
+            return items.join('\n');
+        }
+
+        if (tag === 'ol') {
+            const items = Array.from(element.children)
+                .filter((child) => child.tagName && child.tagName.toLowerCase() === 'li')
+                .map((item, index) => listItemToMarkdown(item, index, true));
+            return items.join('\n');
+        }
+
+        if (tag === 'pre') {
+            const codeElement = element.querySelector('code');
+            const code = (codeElement ? codeElement.textContent : element.textContent || '').replace(/\n$/, '');
+            return `\`\`\`\n${code}\n\`\`\``;
+        }
+
+        if (tag === 'hr') {
+            return '---';
+        }
+
+        if (tag === 'table') {
+            return tableToMarkdown(element);
+        }
+
+        return inlineElementToMarkdown(element);
+    };
+
+    let previewOutputToMarkdown = () => {
+        const output = document.querySelector('#output');
+        if (!output) {
+            return '';
+        }
+
+        const blocks = [];
+        output.childNodes.forEach((node) => {
+            const markdownBlock = blockToMarkdown(node).trim();
+            if (markdownBlock) {
+                blocks.push(markdownBlock);
+            }
+        });
+
+        return blocks.join('\n\n').replace(/\n{3,}/g, '\n\n');
+    };
+
+    let syncEditorFromPreview = (editor) => {
+        if (!previewEditMode) {
+            return;
+        }
+
+        const markdown = previewOutputToMarkdown();
+        const activeTab = getActiveTab();
+        if (!activeTab) {
+            return;
+        }
+
+        syncingFromPreviewEdit = true;
+        suppressEditorChange = true;
+        editor.setValue(markdown);
+        suppressEditorChange = false;
+        syncingFromPreviewEdit = false;
+
+        activeTab.content = markdown;
+        activeTab.dirty = markdown !== activeTab.lastSavedContent;
+        renderTabs();
+        saveLastContent(markdown);
+        lastRenderedMarkdown = markdown;
+    };
+
+    let setupPreviewEditSync = (editor) => {
+        const output = document.querySelector('#output');
+        if (!output) {
+            return;
+        }
+
+        output.addEventListener('input', () => {
+            if (!previewEditMode) {
+                return;
+            }
+
+            if (previewEditSyncTimer !== null) {
+                window.clearTimeout(previewEditSyncTimer);
+            }
+
+            previewEditSyncTimer = window.setTimeout(() => {
+                previewEditSyncTimer = null;
+                syncEditorFromPreview(editor);
+            }, 220);
+        });
+    };
+
+    let setupPreviewSelectionTracking = () => {
+        document.addEventListener('selectionchange', () => {
+            if (!previewEditMode) {
+                return;
+            }
+            savePreviewSelectionRange();
+        });
+    };
+
     // Render markdown text as html
     let renderMarkdown = (markdown) => {
         let options = {
@@ -435,7 +825,13 @@ ${"`"}${"`"}${"`"}
         };
         let html = marked.parse(markdown, options);
         let sanitized = DOMPurify.sanitize(html);
-        document.querySelector('#output').innerHTML = sanitized;
+        const output = document.querySelector('#output');
+        if (!output) {
+            return;
+        }
+        output.innerHTML = sanitized;
+        previewSavedRange = null;
+        setPreviewEditableState(previewEditMode);
     };
 
     let scheduleConvert = (markdown) => {
@@ -681,9 +1077,39 @@ ${"`"}${"`"}${"`"}
         return exportLightCssPromise;
     };
 
+    let getSuggestedPdfName = () => {
+        const activeTab = getActiveTab();
+        const fallback = 'markdown-preview.pdf';
+        if (!activeTab || !activeTab.title) {
+            return fallback;
+        }
+
+        const rawTitle = String(activeTab.title).trim();
+        if (!rawTitle) {
+            return fallback;
+        }
+
+        const baseName = rawTitle.replace(/\.[^./\\]+$/, '');
+        return `${baseName || 'markdown-preview'}.pdf`;
+    };
+
     let exportPreviewToPdf = () => {
-        const previewElement = document.querySelector('#preview-wrapper');
-        if (!previewElement) {
+        const outputElement = document.querySelector('#output');
+        if (!outputElement) {
+            return;
+        }
+
+        if (window.lectrDesktop && typeof window.lectrDesktop.exportPreviewPdf === 'function') {
+            getLightMarkdownCss().then((lightCss) => {
+                return window.lectrDesktop.exportPreviewPdf({
+                    html: outputElement.innerHTML,
+                    lightCss,
+                    suggestedName: getSuggestedPdfName()
+                });
+            }).catch((error) => {
+                // eslint-disable-next-line no-console
+                console.error('Failed to export PDF via desktop bridge', error);
+            });
             return;
         }
 
@@ -712,19 +1138,11 @@ ${"`"}${"`"}${"`"}
                             const style = clonedDoc.createElement('style');
                             style.id = 'export-light-css';
                             style.textContent = `${lightCss}
-#preview-wrapper, #output, body {
+#output, body {
   background: #fff !important;
   color: #24292f !important;
 }`;
                             clonedDoc.head.appendChild(style);
-                        }
-
-                        const clonedPreview = clonedDoc.getElementById('preview-wrapper');
-                        if (clonedPreview) {
-                            clonedPreview.style.background = '#fff';
-                            clonedPreview.style.color = '#24292f';
-                            clonedPreview.style.width = '190mm';
-                            clonedPreview.style.maxWidth = '190mm';
                         }
 
                         const clonedOutput = clonedDoc.getElementById('output');
@@ -741,7 +1159,7 @@ ${"`"}${"`"}${"`"}
 
             window.html2pdf()
                 .set(options)
-                .from(previewElement)
+                .from(outputElement)
                 .save()
                 .catch((error) => {
                     // eslint-disable-next-line no-console
@@ -1231,6 +1649,25 @@ ${"`"}${"`"}${"`"}
         return fallbackOpenFile();
     };
 
+    let openFileByPath = async ({ linkTarget, sourceFilePath }) => {
+        if (window.lectrDesktop && typeof window.lectrDesktop.openMarkdownFileByPath === 'function') {
+            try {
+                const result = await window.lectrDesktop.openMarkdownFileByPath({
+                    linkTarget,
+                    sourceFilePath
+                });
+                if (result && result.opened) {
+                    return result;
+                }
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('Failed to open linked file via desktop bridge', error);
+            }
+        }
+
+        return { opened: false };
+    };
+
     let fallbackSaveFile = (content, suggestedName = 'document.md') => {
         const fileName = window.prompt(t('saveAsPrompt'), suggestedName);
         if (!fileName) {
@@ -1279,6 +1716,39 @@ ${"`"}${"`"}${"`"}
         return saveTab(activeTab, { forceDialog, showToast: true });
     };
 
+    let applyOpenedFileResult = (result) => {
+        if (!result || !result.opened) {
+            return false;
+        }
+
+        const title = result.fileName || getFileNameFromPath(result.filePath) || 'Opened.md';
+        const content = typeof result.content === 'string' ? result.content : '';
+        const existingByPath = result.filePath
+            ? tabs.find((tab) => tab.filePath === result.filePath)
+            : null;
+
+        if (existingByPath) {
+            existingByPath.content = content;
+            existingByPath.lastSavedContent = content;
+            existingByPath.dirty = false;
+            existingByPath.title = title;
+            activateTab(existingByPath.id);
+            return true;
+        }
+
+        const tab = createTab({
+            title,
+            content,
+            filePath: result.filePath || null,
+            dirty: false,
+            lastSavedContent: content
+        });
+        tabs.push(tab);
+        renderTabs();
+        activateTab(tab.id);
+        return true;
+    };
+
     let setupOpenButton = () => {
         const openButton = document.querySelector('#open-file-button');
         if (!openButton) {
@@ -1292,33 +1762,60 @@ ${"`"}${"`"}${"`"}
                 closeOpenMenus();
                 return;
             }
+            applyOpenedFileResult(result);
+            closeOpenMenus();
+        });
+    };
 
-            const title = result.fileName || getFileNameFromPath(result.filePath) || 'Opened.md';
-            const content = typeof result.content === 'string' ? result.content : '';
-            const existingByPath = result.filePath
-                ? tabs.find((tab) => tab.filePath === result.filePath)
-                : null;
+    let setupPreviewLinkNavigation = () => {
+        const output = document.querySelector('#output');
+        if (!output) {
+            return;
+        }
 
-            if (existingByPath) {
-                existingByPath.content = content;
-                existingByPath.lastSavedContent = content;
-                existingByPath.dirty = false;
-                existingByPath.title = title;
-                activateTab(existingByPath.id);
-            } else {
-                const tab = createTab({
-                    title,
-                    content,
-                    filePath: result.filePath || null,
-                    dirty: false,
-                    lastSavedContent: content
-                });
-                tabs.push(tab);
-                renderTabs();
-                activateTab(tab.id);
+        output.addEventListener('click', async (event) => {
+            if (previewEditMode) {
+                return;
             }
 
-            closeOpenMenus();
+            const target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+
+            const anchor = target.closest('a[href]');
+            if (!anchor) {
+                return;
+            }
+
+            const href = (anchor.getAttribute('href') || '').trim();
+            if (!href) {
+                return;
+            }
+
+            if (href.startsWith('#')) {
+                return;
+            }
+
+            if (/^(?:https?:|mailto:|tel:|data:|blob:)/i.test(href)) {
+                return;
+            }
+
+            const activeTab = getActiveTab();
+            const sourceFilePath = activeTab && activeTab.filePath ? activeTab.filePath : null;
+            if (!sourceFilePath && !href.startsWith('/') && !href.startsWith('file://')) {
+                return;
+            }
+
+            event.preventDefault();
+            const linkedResult = await openFileByPath({
+                linkTarget: href,
+                sourceFilePath
+            });
+
+            if (!applyOpenedFileResult(linkedResult)) {
+                window.alert(t('linkedFileNotFound'));
+            }
         });
     };
 
@@ -1370,6 +1867,23 @@ ${"`"}${"`"}${"`"}
             return tagName === 'input' || tagName === 'textarea' || tagName === 'select';
         };
 
+        const isPreviewEditableTarget = (target) => {
+            const output = getPreviewOutputElement();
+            if (!output || !(target instanceof Node)) {
+                return false;
+            }
+            return target === output || output.contains(target);
+        };
+
+        const isPreviewSelectionActive = () => {
+            const output = getPreviewOutputElement();
+            const selection = window.getSelection();
+            if (!output || !selection || selection.rangeCount === 0) {
+                return false;
+            }
+            return output.contains(selection.anchorNode);
+        };
+
         document.addEventListener('keydown', async (event) => {
             const isMod = event.ctrlKey || event.metaKey;
             if (!isMod) {
@@ -1379,6 +1893,39 @@ ${"`"}${"`"}${"`"}
             const key = event.key.toLowerCase();
             const target = event.target;
             const editableField = isEditableField(target);
+            const previewTarget = isPreviewEditableTarget(target) || isPreviewSelectionActive();
+
+            if (previewEditMode && previewTarget) {
+                let previewFormatType = null;
+
+                if (!event.shiftKey && key === 'b') {
+                    previewFormatType = 'bold';
+                } else if (!event.shiftKey && key === 'i') {
+                    previewFormatType = 'italic';
+                } else if (!event.shiftKey && key === 'k') {
+                    previewFormatType = 'link';
+                } else if (event.shiftKey && event.code === 'KeyX') {
+                    previewFormatType = 'strikethrough';
+                } else if (event.shiftKey && event.code === 'KeyC') {
+                    previewFormatType = 'code';
+                } else if (event.shiftKey && event.code === 'Digit1') {
+                    previewFormatType = 'h1';
+                } else if (event.shiftKey && event.code === 'Digit2') {
+                    previewFormatType = 'h2';
+                } else if (event.shiftKey && event.code === 'Digit8') {
+                    previewFormatType = 'ul';
+                } else if (event.shiftKey && event.code === 'Digit7') {
+                    previewFormatType = 'ol';
+                } else if (event.shiftKey && event.code === 'Period') {
+                    previewFormatType = 'quote';
+                }
+
+                if (previewFormatType) {
+                    event.preventDefault();
+                    applyPreviewFormat(previewFormatType, editor);
+                    return;
+                }
+            }
 
             if (key === 's') {
                 event.preventDefault();
@@ -1697,6 +2244,69 @@ ${"`"}${"`"}${"`"}
         editor.focus();
     };
 
+    let schedulePreviewSyncFromToolbar = (editor) => {
+        if (previewEditSyncTimer !== null) {
+            window.clearTimeout(previewEditSyncTimer);
+        }
+        previewEditSyncTimer = window.setTimeout(() => {
+            previewEditSyncTimer = null;
+            syncEditorFromPreview(editor);
+        }, 80);
+    };
+
+    let applyPreviewFormat = (formatType, editor) => {
+        if (!previewEditMode) {
+            return false;
+        }
+
+        const output = getPreviewOutputElement();
+        if (!output) {
+            return false;
+        }
+
+        let handled = true;
+        if (formatType === 'bold') {
+            executePreviewCommand('bold');
+        } else if (formatType === 'italic') {
+            executePreviewCommand('italic');
+        } else if (formatType === 'strikethrough') {
+            executePreviewCommand('strikeThrough');
+        } else if (formatType === 'h1') {
+            executePreviewCommand('formatBlock', '<h1>');
+        } else if (formatType === 'h2') {
+            executePreviewCommand('formatBlock', '<h2>');
+        } else if (formatType === 'ul') {
+            executePreviewCommand('insertUnorderedList');
+        } else if (formatType === 'ol') {
+            executePreviewCommand('insertOrderedList');
+        } else if (formatType === 'quote') {
+            executePreviewCommand('formatBlock', '<blockquote>');
+        } else if (formatType === 'link') {
+            const url = window.prompt('URL', 'https://example.com');
+            if (!url) {
+                return true;
+            }
+            restorePreviewSelectionRange();
+            const selectedText = (window.getSelection() ? window.getSelection().toString().trim() : '');
+            if (selectedText) {
+                executePreviewCommand('createLink', url);
+            } else {
+                insertHtmlIntoPreviewSelection(`<a href="${escapeHtml(url)}">${escapeHtml('link text')}</a>`);
+            }
+        } else if (formatType === 'code') {
+            restorePreviewSelectionRange();
+            const selectedText = window.getSelection() ? window.getSelection().toString() : '';
+            insertHtmlIntoPreviewSelection(`<code>${escapeHtml(selectedText || 'inline code')}</code>`);
+        } else {
+            handled = false;
+        }
+
+        if (handled) {
+            schedulePreviewSyncFromToolbar(editor);
+        }
+        return handled;
+    };
+
     let setupFormatToolbar = (editor) => {
         const toolbar = document.querySelector('#format-toolbar');
         if (!toolbar) {
@@ -1722,6 +2332,17 @@ ${"`"}${"`"}${"`"}
             editor.pushUndoStop();
         };
 
+        toolbar.addEventListener('mousedown', (event) => {
+            if (!previewEditMode) {
+                return;
+            }
+            const button = event.target.closest('.format-button');
+            if (!button) {
+                return;
+            }
+            event.preventDefault();
+        });
+
         toolbar.addEventListener('click', (event) => {
             const button = event.target.closest('.format-button');
             if (!button) {
@@ -1730,6 +2351,10 @@ ${"`"}${"`"}${"`"}
             event.preventDefault();
             const formatType = button.getAttribute('data-format');
             if (!formatType || !handlers[formatType]) {
+                return;
+            }
+
+            if (previewEditMode && applyPreviewFormat(formatType, editor)) {
                 return;
             }
             withUndoStop(handlers[formatType]);
@@ -1861,6 +2486,23 @@ ${"`"}${"`"}${"`"}
     let saveZoomSettings = (zoomValue) => {
         try {
             localStorage.setItem(`${localStorageNamespace}_${localStorageZoomKey}`, JSON.stringify(zoomValue));
+        } catch (error) {
+            // ignore storage errors
+        }
+    };
+
+    let loadPreviewEditModeSetting = () => {
+        try {
+            const raw = localStorage.getItem(`${localStorageNamespace}_${localStoragePreviewEditModeKey}`);
+            return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+            return null;
+        }
+    };
+
+    let savePreviewEditModeSetting = (enabled) => {
+        try {
+            localStorage.setItem(`${localStorageNamespace}_${localStoragePreviewEditModeKey}`, JSON.stringify(enabled));
         } catch (error) {
             // ignore storage errors
         }
@@ -2006,6 +2648,51 @@ ${"`"}${"`"}${"`"}
         }
     };
 
+    let initPreviewEditMode = (enabled, editor) => {
+        const checkbox = document.querySelector('#preview-edit-checkbox');
+        previewEditMode = enabled === true;
+        setPreviewEditableState(previewEditMode);
+        setPreviewEditLayout(previewEditMode);
+        if (previewEditMode) {
+            const output = getPreviewOutputElement();
+            if (output) {
+                output.focus();
+            }
+        }
+
+        if (!checkbox) {
+            return;
+        }
+
+        checkbox.checked = previewEditMode;
+        checkbox.addEventListener('change', (event) => {
+            const checked = event.currentTarget.checked === true;
+            previewEditMode = checked;
+            savePreviewEditModeSetting(checked);
+            setPreviewEditableState(checked);
+            setPreviewEditLayout(checked);
+            if (checked) {
+                const output = getPreviewOutputElement();
+                if (output) {
+                    output.focus();
+                }
+            }
+
+            if (previewEditSyncTimer !== null) {
+                window.clearTimeout(previewEditSyncTimer);
+                previewEditSyncTimer = null;
+            }
+
+            if (!checked) {
+                const value = editor.getValue();
+                scheduleConvert(value);
+                return;
+            }
+
+            scheduleConvert(editor.getValue());
+        });
+    };
+
     let setupDivider = () => {
         let lastLeftRatio = 0.5;
         const divider = document.getElementById('split-divider');
@@ -2086,12 +2773,16 @@ ${"`"}${"`"}${"`"}
     let lastContent = loadLastContent();
     let editor = setupEditor();
     setupPreviewScrollSync(editor);
+    setupPreviewEditSync(editor);
+    setupPreviewSelectionTracking();
     setupTabsUi(editor);
 
     const languageSettings = loadLanguageSettings();
     initLanguageSetting(languageSettings === 'ru' ? 'ru' : 'en');
     const zoomSettings = loadZoomSettings();
     initZoomSetting(zoomSettings);
+    const previewEditSettings = loadPreviewEditModeSetting();
+    initPreviewEditMode(previewEditSettings === true, editor);
 
     let savedTabsState = loadTabsState();
     if (savedTabsState && Array.isArray(savedTabsState.tabs) && savedTabsState.tabs.length > 0) {
@@ -2137,6 +2828,7 @@ ${"`"}${"`"}${"`"}
     setupHeaderMenus();
     setupAppVersion();
     setupOpenButton();
+    setupPreviewLinkNavigation();
     setupSaveButton(editor);
     setupSaveAsButton(editor);
     setupResetButton();
@@ -2161,6 +2853,10 @@ ${"`"}${"`"}${"`"}
     setupDivider();
 
     window.addEventListener('beforeunload', () => {
+        if (previewEditSyncTimer !== null) {
+            window.clearTimeout(previewEditSyncTimer);
+            previewEditSyncTimer = null;
+        }
         if (persistTabsTimer !== null) {
             window.clearTimeout(persistTabsTimer);
             persistTabsTimer = null;
