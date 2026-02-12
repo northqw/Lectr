@@ -1,5 +1,6 @@
 const path = require('node:path');
 const fs = require('node:fs/promises');
+const { pathToFileURL } = require('node:url');
 const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
@@ -9,6 +10,7 @@ app.commandLine.appendSwitch('log-level', '3');
 
 const devServerUrl = process.env.ELECTRON_START_URL;
 const supportedTextExtensions = ['.md', '.markdown', '.txt'];
+const supportedImageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'avif'];
 const safeExternalProtocols = new Set(['http:', 'https:', 'mailto:', 'tel:']);
 let isUpdateDownloadInProgress = false;
 
@@ -93,6 +95,95 @@ const findExistingLinkedFilePath = async (candidatePath) => {
     return null;
 };
 
+const normalizePathForMarkdown = (selectedPath, sourceFilePath) => {
+    if (!selectedPath || typeof selectedPath !== 'string') {
+        return '';
+    }
+
+    const normalizedSelected = path.normalize(selectedPath);
+    if (!sourceFilePath || typeof sourceFilePath !== 'string') {
+        return normalizedSelected.split(path.sep).join('/');
+    }
+
+    const baseDir = path.dirname(path.normalize(sourceFilePath));
+    const relativePath = path.relative(baseDir, normalizedSelected);
+    const markdownPath = relativePath && !path.isAbsolute(relativePath)
+        ? relativePath
+        : normalizedSelected;
+    return markdownPath.split(path.sep).join('/');
+};
+
+const slugifyHeadingText = (input) => {
+    const base = String(input || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\p{L}\p{N}\s-]/gu, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+    return base || 'section';
+};
+
+const normalizeHeadingLabel = (rawLabel) => {
+    return String(rawLabel || '')
+        .trim()
+        .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+        .replace(/[`*_~]/g, '')
+        .trim();
+};
+
+const extractMarkdownAnchors = (markdownContent) => {
+    const content = typeof markdownContent === 'string' ? markdownContent : '';
+    if (!content) {
+        return [];
+    }
+
+    const lines = content.split(/\r?\n/);
+    const anchors = [];
+    const slugCounts = new Map();
+    let inFence = false;
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+        const line = lines[lineIndex];
+        const fenceMatch = line.match(/^\s*(```|~~~)/);
+        if (fenceMatch) {
+            inFence = !inFence;
+            continue;
+        }
+        if (inFence) {
+            continue;
+        }
+
+        const headingMatch = line.match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
+        if (!headingMatch) {
+            continue;
+        }
+
+        const level = headingMatch[1].length;
+        const label = normalizeHeadingLabel(headingMatch[2]);
+        if (!label) {
+            continue;
+        }
+
+        const baseSlug = slugifyHeadingText(label);
+        const duplicateCount = slugCounts.get(baseSlug) || 0;
+        slugCounts.set(baseSlug, duplicateCount + 1);
+        const anchor = duplicateCount === 0 ? baseSlug : `${baseSlug}-${duplicateCount}`;
+
+        anchors.push({
+            label,
+            anchor,
+            level,
+            line: lineIndex + 1
+        });
+    }
+
+    return anchors;
+};
+
 const openExternalIfSafe = (rawUrl) => {
     if (typeof rawUrl !== 'string' || !rawUrl.trim()) {
         return false;
@@ -120,7 +211,7 @@ function createWindow() {
         minWidth: 980,
         minHeight: 640,
         autoHideMenuBar: true,
-        icon: path.join(__dirname, '..', 'public', 'favicon.png'),
+        icon: path.join(__dirname, 'icon.png'),
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false,
@@ -257,6 +348,73 @@ ipcMain.handle('lectr:open-markdown-file', async () => {
     };
 });
 
+ipcMain.handle('lectr:pick-link-file', async (_event, payload) => {
+    const normalizedPayload = payload && typeof payload === 'object' ? payload : {};
+    const sourceFilePath = typeof normalizedPayload.sourceFilePath === 'string' ? normalizedPayload.sourceFilePath : '';
+
+    const result = await dialog.showOpenDialog({
+        title: 'Select file to link',
+        properties: ['openFile'],
+        filters: [
+            { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
+            { name: 'All files', extensions: ['*'] }
+        ]
+    });
+
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+        return { picked: false };
+    }
+
+    const filePath = result.filePaths[0];
+    const linkTarget = normalizePathForMarkdown(filePath, sourceFilePath);
+    const extension = path.extname(filePath).toLowerCase();
+    const shouldReadAnchors = supportedTextExtensions.includes(extension);
+    let anchors = [];
+
+    if (shouldReadAnchors) {
+        try {
+            const content = await fs.readFile(filePath, 'utf8');
+            anchors = extractMarkdownAnchors(content);
+        } catch (_error) {
+            anchors = [];
+        }
+    }
+
+    return {
+        picked: true,
+        filePath,
+        fileName: path.basename(filePath),
+        linkTarget,
+        anchors
+    };
+});
+
+ipcMain.handle('lectr:pick-image-file', async (_event, payload) => {
+    const normalizedPayload = payload && typeof payload === 'object' ? payload : {};
+    const sourceFilePath = typeof normalizedPayload.sourceFilePath === 'string' ? normalizedPayload.sourceFilePath : '';
+
+    const result = await dialog.showOpenDialog({
+        title: 'Select image',
+        properties: ['openFile'],
+        filters: [
+            { name: 'Images', extensions: supportedImageExtensions },
+            { name: 'All files', extensions: ['*'] }
+        ]
+    });
+
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+        return { picked: false };
+    }
+
+    const filePath = result.filePaths[0];
+    return {
+        picked: true,
+        filePath,
+        fileName: path.basename(filePath),
+        linkTarget: normalizePathForMarkdown(filePath, sourceFilePath)
+    };
+});
+
 ipcMain.handle('lectr:open-markdown-file-by-path', async (_event, payload) => {
     const normalizedPayload = payload && typeof payload === 'object' ? payload : {};
     const linkTarget = typeof normalizedPayload.linkTarget === 'string' ? normalizedPayload.linkTarget : '';
@@ -336,6 +494,7 @@ ipcMain.handle('lectr:export-preview-pdf', async (_event, payload) => {
     const normalizedPayload = payload && typeof payload === 'object' ? payload : {};
     const html = typeof normalizedPayload.html === 'string' ? normalizedPayload.html : '';
     const lightCss = typeof normalizedPayload.lightCss === 'string' ? normalizedPayload.lightCss : '';
+    const sourceFilePath = typeof normalizedPayload.sourceFilePath === 'string' ? normalizedPayload.sourceFilePath.trim() : '';
     const suggestedNameRaw = typeof normalizedPayload.suggestedName === 'string' && normalizedPayload.suggestedName.trim()
         ? normalizedPayload.suggestedName.trim()
         : 'markdown-preview.pdf';
@@ -412,7 +571,15 @@ ipcMain.handle('lectr:export-preview-pdf', async (_event, payload) => {
   </body>
 </html>`;
 
-        await exportWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(documentHtml)}`);
+        const baseDirectory = sourceFilePath
+            ? path.dirname(sourceFilePath)
+            : path.dirname(result.filePath);
+        const basePath = path.resolve(baseDirectory);
+        const baseUrl = pathToFileURL(basePath.endsWith(path.sep) ? basePath : `${basePath}${path.sep}`).toString();
+
+        await exportWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(documentHtml)}`, {
+            baseURLForDataURL: baseUrl
+        });
 
         await exportWindow.webContents.executeJavaScript(
             'document.fonts && document.fonts.ready ? document.fonts.ready.then(() => true) : true',

@@ -30,6 +30,9 @@ const init = async () => {
     let applyThemePreference = () => { };
     let monaco = null;
     let monacoLoadPromise = null;
+    let notesArchive = [];
+    let activeNoteTooltipRef = null;
+    let noteTooltipElement = null;
     const immersionScrollThresholdPx = 18;
     const editorTopInsetExtraPx = 0;
 
@@ -41,6 +44,7 @@ const init = async () => {
     const localStorageTabsStateKey = 'tabs_state';
     const localStoragePreviewEditModeKey = 'preview_edit_mode_settings';
     const localStorageOnboardingKey = 'onboarding_v1';
+    const localStorageNotesArchiveKey = 'notes_archive';
     const externalLinkPattern = /^(?:https?:|mailto:|tel:)/i;
     const blockedHrefPattern = /^(?:javascript:|vbscript:|data:|file:)/i;
     let isDomPurifyConfigured = false;
@@ -91,6 +95,67 @@ const init = async () => {
             aboutLicenseLabel: 'License',
             aboutClose: 'Close',
             aboutRepoLink: 'GitHub',
+            tablePopoverTitle: 'Insert table',
+            tableColumns: 'Columns',
+            tableRows: 'Rows',
+            tableAlignment: 'Alignment',
+            tableAlignmentLeft: 'Left',
+            tableAlignmentCenter: 'Center',
+            tableAlignmentRight: 'Right',
+            tableIncludeHeader: 'Include header row',
+            tableInsert: 'Insert table',
+            tableAddColumn: 'Add column',
+            tableRemoveColumn: 'Remove column',
+            tableAddRow: 'Add row',
+            tableRemoveRow: 'Remove row',
+            tableDeleteTable: 'Delete table',
+            tableNotFound: 'Place cursor inside a markdown table first.',
+            tableMinColumns: 'Cannot remove the last table column.',
+            tableNoDataRows: 'Cannot remove row: no table rows left.',
+            tableColumnPrefix: 'Column',
+            linkPopoverTitle: 'Insert link',
+            linkText: 'Link text',
+            linkTarget: 'File path or URL',
+            linkBrowse: 'Browse...',
+            linkAnchor: 'Anchor',
+            linkAnchorNone: 'No anchor',
+            linkInsert: 'Insert link',
+            linkUpdate: 'Update link',
+            linkRemove: 'Remove link',
+            linkDefaultText: 'link text',
+            linkDefaultTarget: 'https://example.com',
+            linkTargetRequired: 'Enter file path or URL for the link.',
+            previewCtrlClickHint: 'Ctrl/Cmd + click to open link',
+            imagePopoverTitle: 'Insert image',
+            imageAlt: 'Alt text',
+            imageSource: 'File path or URL',
+            imageBrowse: 'Browse...',
+            imageTitle: 'Title (optional)',
+            imageInsert: 'Insert image',
+            imageDefaultAlt: 'image',
+            imageDefaultSource: 'image/example.png',
+            imageSourceRequired: 'Enter file path or URL for the image.',
+            notePopoverTitle: 'Term archive',
+            noteArchive: 'Archive entry',
+            noteEmpty: 'No notes found.',
+            noteSearch: 'Search',
+            noteNew: 'Add note',
+            noteEdit: 'Edit note',
+            noteDelete: 'Delete entry',
+            noteDeleteConfirm: 'Delete selected archive entry?',
+            noteTitle: 'Term / title',
+            noteBody: 'Definition / note',
+            noteSave: 'Save to archive',
+            noteEditorAddTitle: 'New archive note',
+            noteEditorEditTitle: 'Edit archive note',
+            noteEditorCancel: 'Cancel',
+            noteBind: 'Bind to selection',
+            noteUnbind: 'Remove binding',
+            noteDefaultBody: 'Definition text',
+            noteSelectionRequired: 'Select text first to bind note.',
+            noteTitleRequired: 'Enter term title.',
+            noteBodyRequired: 'Enter definition or note text.',
+            noteEntryMissing: 'Select archive entry or create a new one.',
             format: {
                 bold: 'Bold',
                 italic: 'Italic',
@@ -101,7 +166,10 @@ const init = async () => {
                 ul: 'Unordered list',
                 ol: 'Ordered list',
                 quote: 'Quote',
-                link: 'Link'
+                link: 'Link',
+                image: 'Image',
+                table: 'Table',
+                note: 'Term note'
             }
         },
         ru: {
@@ -150,6 +218,67 @@ const init = async () => {
             aboutLicenseLabel: 'Лицензия',
             aboutClose: 'Закрыть',
             aboutRepoLink: 'GitHub',
+            tablePopoverTitle: 'Вставить таблицу',
+            tableColumns: 'Столбцы',
+            tableRows: 'Строки',
+            tableAlignment: 'Выравнивание',
+            tableAlignmentLeft: 'Слева',
+            tableAlignmentCenter: 'По центру',
+            tableAlignmentRight: 'Справа',
+            tableIncludeHeader: 'Добавить строку заголовка',
+            tableInsert: 'Вставить таблицу',
+            tableAddColumn: 'Добавить столбец',
+            tableRemoveColumn: 'Удалить столбец',
+            tableAddRow: 'Добавить строку',
+            tableRemoveRow: 'Удалить строку',
+            tableDeleteTable: 'Удалить таблицу',
+            tableNotFound: 'Сначала поставьте курсор внутрь markdown-таблицы.',
+            tableMinColumns: 'Нельзя удалить последний столбец таблицы.',
+            tableNoDataRows: 'Нельзя удалить строку: в таблице не осталось строк данных.',
+            tableColumnPrefix: 'Колонка',
+            linkPopoverTitle: 'Вставить ссылку',
+            linkText: 'Текст ссылки',
+            linkTarget: 'Путь к файлу или URL',
+            linkBrowse: 'Выбрать...',
+            linkAnchor: 'Якорь',
+            linkAnchorNone: 'Без якоря',
+            linkInsert: 'Вставить ссылку',
+            linkUpdate: 'Обновить ссылку',
+            linkRemove: 'Удалить ссылку',
+            linkDefaultText: 'текст ссылки',
+            linkDefaultTarget: 'https://example.com',
+            linkTargetRequired: 'Введите путь к файлу или URL для ссылки.',
+            previewCtrlClickHint: 'Ctrl/Cmd + клик, чтобы открыть ссылку',
+            imagePopoverTitle: 'Вставить изображение',
+            imageAlt: 'Alt-текст',
+            imageSource: 'Путь к файлу или URL',
+            imageBrowse: 'Выбрать...',
+            imageTitle: 'Заголовок (необязательно)',
+            imageInsert: 'Вставить изображение',
+            imageDefaultAlt: 'изображение',
+            imageDefaultSource: 'image/example.png',
+            imageSourceRequired: 'Введите путь к файлу или URL для изображения.',
+            notePopoverTitle: 'Архив терминов',
+            noteArchive: 'Запись архива',
+            noteEmpty: 'Заметки не найдены.',
+            noteSearch: 'Поиск',
+            noteNew: 'Добавить заметку',
+            noteEdit: 'Редактировать заметку',
+            noteDelete: 'Удалить запись',
+            noteDeleteConfirm: 'Удалить выбранную запись архива?',
+            noteTitle: 'Термин / заголовок',
+            noteBody: 'Определение / заметка',
+            noteSave: 'Сохранить в архив',
+            noteEditorAddTitle: 'Новая запись архива',
+            noteEditorEditTitle: 'Редактировать запись архива',
+            noteEditorCancel: 'Отмена',
+            noteBind: 'Привязать к выделению',
+            noteUnbind: 'Убрать привязку',
+            noteDefaultBody: 'Текст определения',
+            noteSelectionRequired: 'Сначала выделите текст для привязки заметки.',
+            noteTitleRequired: 'Введите название термина.',
+            noteBodyRequired: 'Введите определение или текст заметки.',
+            noteEntryMissing: 'Выберите запись архива или создайте новую.',
             format: {
                 bold: 'Жирный',
                 italic: 'Курсив',
@@ -160,7 +289,10 @@ const init = async () => {
                 ul: 'Маркированный список',
                 ol: 'Нумерованный список',
                 quote: 'Цитата',
-                link: 'Ссылка'
+                link: 'Ссылка',
+                image: 'Изображение',
+                table: 'Таблица',
+                note: 'Заметка-термин'
             }
         }
     };
@@ -372,7 +504,44 @@ ${"`"}${"`"}${"`"}
             ['about-developer-label', 'aboutDeveloperLabel'],
             ['about-repo-label', 'aboutRepositoryLabel'],
             ['about-license-label', 'aboutLicenseLabel'],
-            ['about-repo-link', 'aboutRepoLink']
+            ['about-repo-link', 'aboutRepoLink'],
+            ['table-popover-title', 'tablePopoverTitle'],
+            ['table-columns-label', 'tableColumns'],
+            ['table-rows-label', 'tableRows'],
+            ['table-alignment-label', 'tableAlignment'],
+            ['table-alignment-left-option', 'tableAlignmentLeft'],
+            ['table-alignment-center-option', 'tableAlignmentCenter'],
+            ['table-alignment-right-option', 'tableAlignmentRight'],
+            ['table-header-label', 'tableIncludeHeader'],
+            ['table-insert-button', 'tableInsert'],
+            ['table-add-column-button', 'tableAddColumn'],
+            ['table-remove-column-button', 'tableRemoveColumn'],
+            ['table-add-row-button', 'tableAddRow'],
+            ['table-remove-row-button', 'tableRemoveRow'],
+            ['link-popover-title', 'linkPopoverTitle'],
+            ['link-text-label', 'linkText'],
+            ['link-target-label', 'linkTarget'],
+            ['link-anchor-label', 'linkAnchor'],
+            ['link-anchor-none-option', 'linkAnchorNone'],
+            ['link-browse-button', 'linkBrowse'],
+            ['link-insert-button', 'linkInsert'],
+            ['link-remove-button', 'linkRemove'],
+            ['note-popover-title', 'notePopoverTitle'],
+            ['note-search-label', 'noteSearch'],
+            ['note-new-entry-button', 'noteNew'],
+            ['note-bind-button', 'noteBind'],
+            ['note-unbind-button', 'noteUnbind'],
+            ['note-editor-title-label', 'noteTitle'],
+            ['note-editor-body-label', 'noteBody'],
+            ['note-editor-save-button', 'noteSave'],
+            ['note-editor-cancel-button', 'noteEditorCancel'],
+            ['note-editor-delete-button', 'noteDelete'],
+            ['image-popover-title', 'imagePopoverTitle'],
+            ['image-alt-label', 'imageAlt'],
+            ['image-src-label', 'imageSource'],
+            ['image-browse-button', 'imageBrowse'],
+            ['image-title-label', 'imageTitle'],
+            ['image-insert-button', 'imageInsert']
         ];
 
         mappings.forEach(([id, key]) => {
@@ -401,6 +570,57 @@ ${"`"}${"`"}${"`"}
             aboutCloseButton.setAttribute('title', t('aboutClose'));
         }
 
+        const tablePopover = byId('table-popover');
+        if (tablePopover) {
+            tablePopover.setAttribute('aria-label', t('tablePopoverTitle'));
+        }
+
+        const linkPopover = byId('link-popover');
+        if (linkPopover) {
+            linkPopover.setAttribute('aria-label', t('linkPopoverTitle'));
+        }
+
+        const imagePopover = byId('image-popover');
+        if (imagePopover) {
+            imagePopover.setAttribute('aria-label', t('imagePopoverTitle'));
+        }
+
+        const notePopover = byId('note-popover');
+        if (notePopover) {
+            notePopover.setAttribute('aria-label', t('notePopoverTitle'));
+        }
+
+        const noteEditorOverlay = byId('note-editor-overlay');
+        if (noteEditorOverlay) {
+            noteEditorOverlay.setAttribute('aria-label', t('notePopoverTitle'));
+        }
+
+        const noteEditorCloseButton = byId('note-editor-close-button');
+        if (noteEditorCloseButton) {
+            noteEditorCloseButton.setAttribute('aria-label', t('noteEditorCancel'));
+            noteEditorCloseButton.setAttribute('title', t('noteEditorCancel'));
+        }
+
+        const noteEditorModalTitle = byId('note-editor-modal-title');
+        if (noteEditorModalTitle) {
+            const currentMode = noteEditorModalTitle.getAttribute('data-mode') === 'edit' ? 'edit' : 'create';
+            noteEditorModalTitle.textContent = currentMode === 'edit'
+                ? t('noteEditorEditTitle')
+                : t('noteEditorAddTitle');
+        }
+        const noteEntriesList = byId('note-entries-list');
+        if (noteEntriesList) {
+            const emptyState = noteEntriesList.querySelector('.note-empty-state');
+            if (emptyState) {
+                emptyState.textContent = t('noteEmpty');
+            }
+            const editButtons = Array.from(noteEntriesList.querySelectorAll('.note-entry-edit'));
+            editButtons.forEach((button) => {
+                button.setAttribute('aria-label', t('noteEdit'));
+                button.setAttribute('title', t('noteEdit'));
+            });
+        }
+
         const formatButtons = Array.from(document.querySelectorAll('.format-button'));
         formatButtons.forEach((button) => {
             const formatType = button.getAttribute('data-format');
@@ -413,6 +633,11 @@ ${"`"}${"`"}${"`"}
             button.setAttribute('title', formatLabel);
             button.setAttribute('aria-label', formatLabel);
         });
+
+        const output = byId('output');
+        if (output) {
+            applyPreviewLinkHints(output);
+        }
 
         document.documentElement.setAttribute('lang', currentLanguage === 'ru' ? 'ru' : 'en');
         renderTabs();
@@ -686,12 +911,17 @@ ${"`"}${"`"}${"`"}
             output.setAttribute('contenteditable', 'true');
             output.setAttribute('spellcheck', 'true');
             output.classList.add('preview-editable');
+            applyPreviewLinkHints(output);
+            applyNoteReferenceDecorations(output);
             return;
         }
 
         output.removeAttribute('contenteditable');
         output.removeAttribute('spellcheck');
         output.classList.remove('preview-editable');
+        applyPreviewLinkHints(output);
+        applyNoteReferenceDecorations(output);
+        hideNoteTooltip();
     };
 
     let setPreviewEditLayout = (enabled) => {
@@ -809,6 +1039,65 @@ ${"`"}${"`"}${"`"}
         return success;
     };
 
+    let unwrapPreviewBlockquoteAtSelection = () => {
+        const output = getPreviewOutputElement();
+        if (!output || !previewEditMode) {
+            return false;
+        }
+
+        output.focus();
+        restorePreviewSelectionRange();
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            return false;
+        }
+
+        const range = selection.getRangeAt(0);
+        if (!isRangeInsideElement(range, output)) {
+            return false;
+        }
+
+        const startNode = range.startContainer;
+        const contextElement = startNode.nodeType === Node.ELEMENT_NODE
+            ? startNode
+            : startNode.parentElement;
+        if (!(contextElement instanceof Element)) {
+            return false;
+        }
+
+        const blockquote = contextElement.closest('blockquote');
+        if (!blockquote || !output.contains(blockquote)) {
+            return false;
+        }
+
+        const marker = document.createElement('span');
+        marker.setAttribute('data-lectr-caret-marker', '1');
+        marker.textContent = '\u200b';
+
+        const collapsedRange = range.cloneRange();
+        collapsedRange.collapse(true);
+        collapsedRange.insertNode(marker);
+
+        const parent = blockquote.parentNode;
+        if (!parent) {
+            marker.remove();
+            return false;
+        }
+        while (blockquote.firstChild) {
+            parent.insertBefore(blockquote.firstChild, blockquote);
+        }
+        parent.removeChild(blockquote);
+
+        const nextRange = document.createRange();
+        nextRange.setStartAfter(marker);
+        nextRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(nextRange);
+        marker.remove();
+        previewSavedRange = nextRange.cloneRange();
+        return true;
+    };
+
     let insertHtmlIntoPreviewSelection = (html) => {
         const output = getPreviewOutputElement();
         if (!output || !previewEditMode) {
@@ -853,9 +1142,261 @@ ${"`"}${"`"}${"`"}
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
-    let escapeMarkdownText = (text) => text
-        .replace(/\\/g, '\\\\')
-        .replace(/([`*_{}\[\]()#+\-.!|>])/g, '\\$1');
+    let escapeHtmlAttribute = (text) => escapeHtml(text).replace(/`/g, '&#96;');
+
+    let getNoteEntryById = (noteId) => {
+        const safeId = String(noteId || '').trim();
+        if (!safeId) {
+            return null;
+        }
+        return notesArchive.find((entry) => entry && entry.id === safeId) || null;
+    };
+
+    let ensureNoteTooltipElement = () => {
+        if (noteTooltipElement && noteTooltipElement.isConnected) {
+            return noteTooltipElement;
+        }
+        const tooltip = document.createElement('div');
+        tooltip.id = 'note-hover-tooltip';
+        tooltip.className = 'note-hover-tooltip';
+        tooltip.hidden = true;
+        document.body.appendChild(tooltip);
+        noteTooltipElement = tooltip;
+        return tooltip;
+    };
+
+    let hideNoteTooltip = () => {
+        activeNoteTooltipRef = null;
+        const tooltip = ensureNoteTooltipElement();
+        tooltip.hidden = true;
+        tooltip.innerHTML = '';
+    };
+
+    let showNoteTooltip = (targetElement) => {
+        if (!(targetElement instanceof Element)) {
+            hideNoteTooltip();
+            return;
+        }
+        const noteId = String(targetElement.getAttribute('data-lectr-note-id') || '').trim();
+        const entry = getNoteEntryById(noteId);
+        if (!entry) {
+            hideNoteTooltip();
+            return;
+        }
+
+        const tooltip = ensureNoteTooltipElement();
+        tooltip.innerHTML = `<strong>${escapeHtml(entry.title)}</strong><span>${escapeHtml(entry.body)}</span>`;
+        tooltip.hidden = false;
+
+        const rect = targetElement.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const top = Math.max(8, rect.bottom + 8);
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - tooltipRect.width - 8));
+        tooltip.style.top = `${top}px`;
+        tooltip.style.left = `${left}px`;
+        activeNoteTooltipRef = targetElement;
+    };
+
+    let normalizeMarkdownContent = (markdown) => {
+        const raw = typeof markdown === 'string' ? markdown : '';
+        if (!raw) {
+            return '';
+        }
+
+        const removableTokens = new Set([
+            '**',
+            '****',
+            '__',
+            '____',
+            '~~',
+            '~~~~',
+            '``',
+            '````'
+        ]);
+
+        const normalized = raw
+            .replace(/\r\n?/g, '\n')
+            .split('\n')
+            .map((line) => {
+                const trimmed = line.trim();
+                if (removableTokens.has(trimmed)) {
+                    return '';
+                }
+                return line;
+            })
+            .join('\n');
+        const normalizedLinks = normalized.replace(
+            /\(([^()\n]+)\)\[([^\]\n]*[/.#:][^\]\n]*)\]/g,
+            (_match, label, href) => `[${String(label).trim()}](${String(href).trim()})`
+        );
+
+        return normalizedLinks.replace(/\n{3,}/g, '\n\n');
+    };
+
+    let normalizeHeadingLabelText = (rawLabel) => {
+        return String(rawLabel || '')
+            .trim()
+            .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+            .replace(/[`*_~]/g, '')
+            .trim();
+    };
+
+    let slugifyHeadingId = (value) => {
+        const base = String(value || '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^\p{L}\p{N}\s-]/gu, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+        return base || 'section';
+    };
+
+    let applyHeadingIdsToElement = (rootElement) => {
+        if (!(rootElement instanceof Element)) {
+            return;
+        }
+
+        const slugCounts = new Map();
+        const headings = Array.from(rootElement.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+        headings.forEach((headingElement) => {
+            const label = normalizeHeadingLabelText(headingElement.textContent || '');
+            if (!label) {
+                return;
+            }
+
+            const baseSlug = slugifyHeadingId(label);
+            const duplicateCount = slugCounts.get(baseSlug) || 0;
+            slugCounts.set(baseSlug, duplicateCount + 1);
+            const headingId = duplicateCount === 0 ? baseSlug : `${baseSlug}-${duplicateCount}`;
+            headingElement.setAttribute('id', headingId);
+        });
+    };
+
+    let applyPreviewLinkHints = (rootElement) => {
+        if (!(rootElement instanceof Element)) {
+            return;
+        }
+
+        const anchors = Array.from(rootElement.querySelectorAll('a[href]'));
+        anchors.forEach((anchorElement) => {
+            if (!(anchorElement instanceof HTMLAnchorElement)) {
+                return;
+            }
+
+            if (!previewEditMode) {
+                if (anchorElement.dataset.lectrHintManaged === '1') {
+                    anchorElement.removeAttribute('title');
+                    delete anchorElement.dataset.lectrHintManaged;
+                }
+                return;
+            }
+
+            const existingTitle = String(anchorElement.getAttribute('title') || '').trim();
+            if (!existingTitle) {
+                anchorElement.setAttribute('title', t('previewCtrlClickHint'));
+                anchorElement.dataset.lectrHintManaged = '1';
+            }
+        });
+    };
+
+    let applyNoteReferenceDecorations = (rootElement) => {
+        if (!(rootElement instanceof Element)) {
+            return;
+        }
+
+        const noteReferences = Array.from(rootElement.querySelectorAll('[data-lectr-note-id]'));
+        noteReferences.forEach((element) => {
+            const noteId = String(element.getAttribute('data-lectr-note-id') || '').trim();
+            if (!noteId) {
+                return;
+            }
+            element.classList.add('lectr-note-ref');
+            const entry = getNoteEntryById(noteId);
+            if (!entry) {
+                return;
+            }
+            const hint = `${entry.title}: ${entry.body}`.trim();
+            if (!hint) {
+                return;
+            }
+            element.setAttribute('data-lectr-note-preview', hint);
+        });
+    };
+
+    let decorateNoteReferencesForPdf = (rootElement) => {
+        if (!(rootElement instanceof Element)) {
+            return;
+        }
+
+        const noteReferences = Array.from(rootElement.querySelectorAll('[data-lectr-note-id]'));
+        noteReferences.forEach((element) => {
+            const noteId = String(element.getAttribute('data-lectr-note-id') || '').trim();
+            const entry = getNoteEntryById(noteId);
+            if (!entry) {
+                return;
+            }
+
+            const noteTarget = element;
+            noteTarget.style.background = '#fff8cc';
+            noteTarget.style.borderBottom = '1px dashed #9a7f32';
+            noteTarget.style.padding = '0 1px';
+
+            const noteBox = document.createElement('div');
+            noteBox.setAttribute('class', 'lectr-pdf-note-box');
+            noteBox.style.display = 'block';
+            noteBox.style.margin = '6px 0 10px';
+            noteBox.style.padding = '7px 9px';
+            noteBox.style.border = '1px solid #c4cad1';
+            noteBox.style.borderLeft = '3px solid #7a8ca0';
+            noteBox.style.borderRadius = '6px';
+            noteBox.style.background = '#f7f9fb';
+            noteBox.style.color = '#1f2b37';
+            noteBox.style.fontSize = '12px';
+            noteBox.style.lineHeight = '1.45';
+            noteBox.innerHTML = `<strong>${escapeHtml(entry.title)}</strong><div>${escapeHtml(entry.body)}</div>`;
+            noteTarget.insertAdjacentElement('afterend', noteBox);
+        });
+    };
+
+    let getElementByIdWithin = (rootElement, idValue) => {
+        if (!(rootElement instanceof Element) || !idValue) {
+            return null;
+        }
+        if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+            return rootElement.querySelector(`#${CSS.escape(idValue)}`);
+        }
+        const escaped = String(idValue).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        return rootElement.querySelector(`[id="${escaped}"]`);
+    };
+
+    let scrollPreviewToAnchor = (rawAnchor) => {
+        const anchorId = String(rawAnchor || '').trim().replace(/^#/, '');
+        if (!anchorId) {
+            return;
+        }
+
+        let remainingAttempts = 10;
+        const attemptScroll = () => {
+            const output = getPreviewOutputElement();
+            if (!output) {
+                return;
+            }
+            const target = getElementByIdWithin(output, anchorId);
+            if (target) {
+                target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                return;
+            }
+            remainingAttempts -= 1;
+            if (remainingAttempts > 0) {
+                window.requestAnimationFrame(attemptScroll);
+            }
+        };
+
+        attemptScroll();
+    };
 
     let inlineNodeToMarkdown = (node) => {
         if (!node) {
@@ -878,18 +1419,42 @@ ${"`"}${"`"}${"`"}
             return '\n';
         }
         if (tag === 'strong' || tag === 'b') {
+            if (!childrenText.trim()) {
+                return '';
+            }
             return `**${childrenText}**`;
         }
         if (tag === 'em' || tag === 'i') {
+            if (!childrenText.trim()) {
+                return '';
+            }
             return `*${childrenText}*`;
         }
+        if (tag === 's' || tag === 'strike' || tag === 'del') {
+            if (!childrenText.trim()) {
+                return '';
+            }
+            return `~~${childrenText}~~`;
+        }
         if (tag === 'code' && element.parentElement?.tagName.toLowerCase() !== 'pre') {
+            if (!childrenText.trim()) {
+                return '';
+            }
             return `\`${childrenText}\``;
         }
         if (tag === 'a') {
             const href = element.getAttribute('href') || '';
             const label = childrenText || href;
+            if (!href && !label.trim()) {
+                return '';
+            }
             return `[${label}](${href})`;
+        }
+        if (tag === 'span') {
+            const noteId = String(element.getAttribute('data-lectr-note-id') || '').trim();
+            if (noteId) {
+                return `<span class="lectr-note-ref" data-lectr-note-id="${escapeHtmlAttribute(noteId)}">${childrenText}</span>`;
+            }
         }
 
         return childrenText;
@@ -954,7 +1519,7 @@ ${"`"}${"`"}${"`"}
 
         if (node.nodeType === Node.TEXT_NODE) {
             const text = (node.textContent || '').trim();
-            return text ? escapeMarkdownText(text) : '';
+            return text || '';
         }
 
         if (node.nodeType !== Node.ELEMENT_NODE) {
@@ -1035,7 +1600,7 @@ ${"`"}${"`"}${"`"}
             return;
         }
 
-        const markdown = previewOutputToMarkdown();
+        const markdown = normalizeMarkdownContent(previewOutputToMarkdown());
         const activeTab = getActiveTab();
         if (!activeTab) {
             return;
@@ -1149,13 +1714,17 @@ ${"`"}${"`"}${"`"}
             headerIds: false,
             mangle: false
         };
-        let html = marked.parse(markdown, options);
+        const normalizedMarkdown = normalizeMarkdownContent(markdown);
+        let html = marked.parse(normalizedMarkdown, options);
         let sanitized = sanitizeRenderedMarkdown(html);
         const output = document.querySelector('#output');
         if (!output) {
             return;
         }
         output.innerHTML = sanitized;
+        applyHeadingIdsToElement(output);
+        applyPreviewLinkHints(output);
+        applyNoteReferenceDecorations(output);
         previewSavedRange = null;
         setPreviewEditableState(previewEditMode);
         refreshTopImmersionState();
@@ -1206,11 +1775,14 @@ ${"`"}${"`"}${"`"}
     };
 
     let presetValue = (value) => {
+        const normalizedValue = normalizeMarkdownContent(value);
         suppressEditorChange = true;
-        editor.setValue(value);
+        editor.setValue(normalizedValue);
         suppressEditorChange = false;
         editor.revealPosition({ lineNumber: 1, column: 1 });
-        scheduleConvert(value);
+        // Force refresh after tab/file open to avoid stale render cache.
+        lastRenderedMarkdown = null;
+        scheduleConvert(normalizedValue);
         if (!previewEditMode) {
             editor.focus();
             refreshTopImmersionState();
@@ -1462,18 +2034,62 @@ ${"`"}${"`"}${"`"}
         return `${baseName || 'markdown-preview'}.pdf`;
     };
 
+    let rewriteMarkdownLinksForPdf = (rootElement) => {
+        if (!(rootElement instanceof Element)) {
+            return;
+        }
+
+        const anchors = Array.from(rootElement.querySelectorAll('a[href]'));
+        anchors.forEach((anchorElement) => {
+            const href = String(anchorElement.getAttribute('href') || '').trim();
+            if (!href || href.startsWith('#')) {
+                return;
+            }
+
+            if (/^(?:https?:|mailto:|tel:|data:|blob:|file:)/i.test(href)) {
+                return;
+            }
+
+            const match = href.match(/^([^?#]+)(\?[^#]*)?(#.*)?$/);
+            if (!match) {
+                return;
+            }
+
+            const pathPart = match[1] || '';
+            const queryPart = match[2] || '';
+            const hashPart = match[3] || '';
+            if (!/\.(?:md|markdown|txt)$/i.test(pathPart)) {
+                return;
+            }
+
+            const pdfPath = pathPart.replace(/\.(?:md|markdown|txt)$/i, '.pdf');
+            anchorElement.setAttribute('href', `${pdfPath}${queryPart}${hashPart}`);
+        });
+    };
+
     let exportPreviewToPdf = () => {
         const outputElement = document.querySelector('#output');
         if (!outputElement) {
             return;
         }
+        const activeTab = getActiveTab();
+        const sourceFilePath = activeTab && typeof activeTab.filePath === 'string' && activeTab.filePath.trim()
+            ? activeTab.filePath
+            : null;
+
+        const exportHtmlContainer = document.createElement('div');
+        exportHtmlContainer.innerHTML = outputElement.innerHTML;
+        rewriteMarkdownLinksForPdf(exportHtmlContainer);
+        decorateNoteReferencesForPdf(exportHtmlContainer);
+        const exportHtml = exportHtmlContainer.innerHTML;
 
         if (window.lectrDesktop && typeof window.lectrDesktop.exportPreviewPdf === 'function') {
             getLightMarkdownCss().then((lightCss) => {
                 return window.lectrDesktop.exportPreviewPdf({
-                    html: outputElement.innerHTML,
+                    html: exportHtml,
                     lightCss,
-                    suggestedName: getSuggestedPdfName()
+                    suggestedName: getSuggestedPdfName(),
+                    sourceFilePath
                 });
             }).catch((error) => {
                 // eslint-disable-next-line no-console
@@ -1487,6 +2103,7 @@ ${"`"}${"`"}${"`"}
                 margin: 10,
                 filename: 'markdown-preview.pdf',
                 image: { type: 'jpeg', quality: 0.98 },
+                enableLinks: true,
                 html2canvas: {
                     scale: 2,
                     useCORS: true,
@@ -1515,6 +2132,8 @@ ${"`"}${"`"}${"`"}
                             clonedOutput.style.color = '#24292f';
                             clonedOutput.style.width = '190mm';
                             clonedOutput.style.maxWidth = '190mm';
+                            rewriteMarkdownLinksForPdf(clonedOutput);
+                            decorateNoteReferencesForPdf(clonedOutput);
                         }
                     }
                 },
@@ -1954,52 +2573,11 @@ ${"`"}${"`"}${"`"}
             applyDropSlotPreview(insertIndex);
         };
 
-        const endDrag = (event) => {
-            if (!dragState.started || dragState.pointerId !== event.pointerId) {
-                return;
-            }
-
-            const wasActivated = dragState.activated;
-            const draggedTabId = dragState.tabId;
-            const proposedInsertIndex = dragState.pendingInsertIndex;
-            const beforePositions = wasActivated ? captureTabPositions() : new Map();
-            const floatingInBody = !!(dragState.tabElement && dragState.tabElement.parentElement === document.body);
-
-            if (dragState.tabElement) {
-                dragState.tabElement.classList.remove('dragging-pointer');
-                if (dragState.tabElement.hasPointerCapture(event.pointerId)) {
-                    dragState.tabElement.releasePointerCapture(event.pointerId);
-                }
-                if (floatingInBody) {
-                    dragState.tabElement.remove();
-                } else {
-                    clearFloatingStyles(dragState.tabElement);
-                }
-            }
-
-            if (tabsBar) {
-                tabsBar.classList.remove('drag-slot-active');
-            }
-
-            if (wasActivated && draggedTabId && Number.isInteger(proposedInsertIndex)) {
-                const currentIndex = tabs.findIndex((tab) => tab.id === draggedTabId);
-                const boundedTargetIndex = Math.max(0, Math.min(tabs.length - 1, proposedInsertIndex));
-                if (currentIndex !== -1) {
-                    moveTab(currentIndex, boundedTargetIndex);
-                }
-                renderTabs();
-                clearDropSlotPreview();
-                animateTabPositions(beforePositions);
-                dragState.suppressNextClick = true;
-            } else {
-                clearDropSlotPreview();
-            }
-
+        const resetDragState = () => {
             if (dragState.originGap && dragState.originGap.parentElement) {
                 dragState.originGap.remove();
             }
             dragState.originGap = null;
-
             dragState.pointerId = null;
             dragState.tabId = null;
             dragState.tabElement = null;
@@ -2014,6 +2592,57 @@ ${"`"}${"`"}${"`"}
             dragState.floatingLeft = 0;
             dragState.floatingTop = 0;
             document.body.classList.remove('tabs-dragging');
+        };
+
+        const endDrag = (event = null, { commit = true } = {}) => {
+            if (!dragState.started) {
+                return;
+            }
+            if (event && dragState.pointerId !== event.pointerId) {
+                return;
+            }
+
+            const wasActivated = dragState.activated;
+            const draggedTabId = dragState.tabId;
+            const proposedInsertIndex = dragState.pendingInsertIndex;
+            const beforePositions = wasActivated ? captureTabPositions() : new Map();
+            const floatingInBody = !!(dragState.tabElement && dragState.tabElement.parentElement === document.body);
+
+            if (dragState.tabElement) {
+                dragState.tabElement.classList.remove('dragging-pointer');
+                if (Number.isInteger(dragState.pointerId) && dragState.tabElement.hasPointerCapture(dragState.pointerId)) {
+                    dragState.tabElement.releasePointerCapture(dragState.pointerId);
+                }
+                if (floatingInBody) {
+                    dragState.tabElement.remove();
+                } else {
+                    clearFloatingStyles(dragState.tabElement);
+                }
+            }
+
+            if (tabsBar) {
+                tabsBar.classList.remove('drag-slot-active');
+            }
+
+            if (commit && wasActivated && draggedTabId && Number.isInteger(proposedInsertIndex)) {
+                const currentIndex = tabs.findIndex((tab) => tab.id === draggedTabId);
+                const boundedTargetIndex = Math.max(0, Math.min(tabs.length - 1, proposedInsertIndex));
+                if (currentIndex !== -1) {
+                    moveTab(currentIndex, boundedTargetIndex);
+                }
+                renderTabs();
+                clearDropSlotPreview();
+                animateTabPositions(beforePositions);
+                dragState.suppressNextClick = true;
+            } else {
+                clearDropSlotPreview();
+            }
+
+            resetDragState();
+        };
+
+        const cancelDrag = () => {
+            endDrag(null, { commit: false });
         };
 
         if (tabsList) {
@@ -2076,6 +2705,16 @@ ${"`"}${"`"}${"`"}
 
         document.addEventListener('pointercancel', (event) => {
             endDrag(event);
+        });
+
+        window.addEventListener('blur', () => {
+            cancelDrag();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                cancelDrag();
+            }
         });
 
         const newTabButton = document.querySelector('#new-tab-button');
@@ -2382,8 +3021,20 @@ ${"`"}${"`"}${"`"}
         if (!activeTab) {
             return { saved: false };
         }
+        if (previewEditMode) {
+            syncEditorFromPreview(editor);
+        }
         syncActiveTabFromEditor(editor);
-        return saveTab(activeTab, { forceDialog, showToast: true });
+        const result = await saveTab(activeTab, { forceDialog, showToast: true });
+
+        if (previewEditMode) {
+            window.requestAnimationFrame(() => {
+                ensurePreviewEditableCaret({ preserveSelection: true });
+                refreshFormatToolbarState();
+            });
+        }
+
+        return result;
     };
 
     let applyOpenedFileResult = (result) => {
@@ -2444,7 +3095,8 @@ ${"`"}${"`"}${"`"}
         }
 
         output.addEventListener('click', async (event) => {
-            if (previewEditMode) {
+            const openByModifier = event.ctrlKey || event.metaKey;
+            if (previewEditMode && !openByModifier) {
                 return;
             }
 
@@ -2464,7 +3116,22 @@ ${"`"}${"`"}${"`"}
             }
 
             if (href.startsWith('#')) {
+                event.preventDefault();
+                scrollPreviewToAnchor(href.slice(1));
                 return;
+            }
+
+            const hrefMatch = href.match(/^([^#]*)(#(.*))?$/);
+            let linkAnchor = '';
+            if (hrefMatch && typeof hrefMatch[3] === 'string') {
+                const rawAnchor = hrefMatch[3].trim();
+                if (rawAnchor) {
+                    try {
+                        linkAnchor = decodeURIComponent(rawAnchor);
+                    } catch (_error) {
+                        linkAnchor = rawAnchor;
+                    }
+                }
             }
 
             if (externalLinkPattern.test(href) || /^(?:data:|blob:)/i.test(href)) {
@@ -2485,6 +3152,391 @@ ${"`"}${"`"}${"`"}
 
             if (!applyOpenedFileResult(linkedResult)) {
                 window.alert(t('linkedFileNotFound'));
+                return;
+            }
+
+            if (linkAnchor) {
+                scrollPreviewToAnchor(linkAnchor);
+            }
+        });
+    };
+
+    let setupPreviewNoteInteractions = () => {
+        const output = document.querySelector('#output');
+        if (!output) {
+            return;
+        }
+
+        const getNoteElement = (target) => {
+            if (!(target instanceof Element)) {
+                return null;
+            }
+            return target.closest('[data-lectr-note-id]');
+        };
+
+        output.addEventListener('mouseover', (event) => {
+            const noteElement = getNoteElement(event.target);
+            if (!noteElement) {
+                return;
+            }
+            showNoteTooltip(noteElement);
+        });
+
+        output.addEventListener('mousemove', (event) => {
+            const noteElement = getNoteElement(event.target);
+            if (!noteElement) {
+                if (activeNoteTooltipRef) {
+                    hideNoteTooltip();
+                }
+                return;
+            }
+            if (activeNoteTooltipRef !== noteElement) {
+                showNoteTooltip(noteElement);
+            }
+        });
+
+        output.addEventListener('mouseleave', () => {
+            hideNoteTooltip();
+        });
+
+        output.addEventListener('scroll', () => {
+            hideNoteTooltip();
+        });
+    };
+
+    let setupPreviewTableActions = (editor) => {
+        const output = document.querySelector('#output');
+        if (!output) {
+            return;
+        }
+
+        const floatingButton = document.createElement('button');
+        floatingButton.type = 'button';
+        floatingButton.className = 'preview-table-action-button';
+        floatingButton.setAttribute('aria-label', t('tablePopoverTitle'));
+        floatingButton.setAttribute('title', t('tablePopoverTitle'));
+        floatingButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10a2 2 0 1 0 0 .01V10zm6 0a2 2 0 1 0 0 .01V10zm6 0a2 2 0 1 0 0 .01V10z"/></svg>';
+        floatingButton.hidden = true;
+
+        const actionMenu = document.createElement('div');
+        actionMenu.className = 'preview-table-action-menu';
+        actionMenu.hidden = true;
+
+        const createMenuButton = (action, labelKey, danger = false) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = danger ? 'danger' : '';
+            button.setAttribute('data-table-action', action);
+            button.textContent = t(labelKey);
+            actionMenu.appendChild(button);
+        };
+
+        createMenuButton('add-column', 'tableAddColumn');
+        createMenuButton('remove-column', 'tableRemoveColumn');
+        createMenuButton('add-row', 'tableAddRow');
+        createMenuButton('remove-row', 'tableRemoveRow');
+        createMenuButton('delete-table', 'tableDeleteTable', true);
+
+        document.body.appendChild(floatingButton);
+        document.body.appendChild(actionMenu);
+
+        let activeTable = null;
+        let menuOpen = false;
+
+        const getTableFromTarget = (target) => {
+            if (!(target instanceof Element)) {
+                return null;
+            }
+            const table = target.closest('table');
+            if (!(table instanceof HTMLTableElement) || !output.contains(table)) {
+                return null;
+            }
+            return table;
+        };
+
+        const getTableFromSelection = () => {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+                return null;
+            }
+            const anchorNode = selection.anchorNode;
+            if (!anchorNode) {
+                return null;
+            }
+            const element = anchorNode.nodeType === Node.ELEMENT_NODE
+                ? anchorNode
+                : anchorNode.parentElement;
+            if (!(element instanceof Element)) {
+                return null;
+            }
+            return getTableFromTarget(element);
+        };
+
+        const updateMenuLabels = () => {
+            floatingButton.setAttribute('aria-label', t('tablePopoverTitle'));
+            floatingButton.setAttribute('title', t('tablePopoverTitle'));
+            const buttons = Array.from(actionMenu.querySelectorAll('[data-table-action]'));
+            buttons.forEach((button) => {
+                const action = button.getAttribute('data-table-action');
+                if (!action) {
+                    return;
+                }
+                if (action === 'add-column') {
+                    button.textContent = t('tableAddColumn');
+                } else if (action === 'remove-column') {
+                    button.textContent = t('tableRemoveColumn');
+                } else if (action === 'add-row') {
+                    button.textContent = t('tableAddRow');
+                } else if (action === 'remove-row') {
+                    button.textContent = t('tableRemoveRow');
+                } else if (action === 'delete-table') {
+                    button.textContent = t('tableDeleteTable');
+                }
+            });
+        };
+
+        const hideActionMenu = () => {
+            menuOpen = false;
+            actionMenu.hidden = true;
+        };
+
+        const clearActiveTable = () => {
+            activeTable = null;
+            floatingButton.hidden = true;
+            hideActionMenu();
+        };
+
+        const positionActionButton = () => {
+            if (!previewEditMode || !(activeTable instanceof HTMLTableElement) || !activeTable.isConnected || !output.contains(activeTable)) {
+                clearActiveTable();
+                return;
+            }
+
+            const rect = activeTable.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0 || rect.bottom < 0 || rect.top > window.innerHeight) {
+                floatingButton.hidden = true;
+                hideActionMenu();
+                return;
+            }
+
+            const buttonSize = 30;
+            const left = Math.round(Math.max(8, Math.min(window.innerWidth - buttonSize - 8, rect.right - buttonSize - 4)));
+            const top = Math.round(Math.max(8, Math.min(window.innerHeight - buttonSize - 8, rect.bottom - buttonSize - 4)));
+            floatingButton.style.left = `${left}px`;
+            floatingButton.style.top = `${top}px`;
+            floatingButton.hidden = false;
+        };
+
+        const positionActionMenu = () => {
+            if (!menuOpen || floatingButton.hidden) {
+                return;
+            }
+            const buttonRect = floatingButton.getBoundingClientRect();
+            const menuRect = actionMenu.getBoundingClientRect();
+            const desiredLeft = Math.round(buttonRect.right - menuRect.width);
+            const left = Math.max(8, Math.min(window.innerWidth - menuRect.width - 8, desiredLeft));
+            const aboveTop = Math.round(buttonRect.top - menuRect.height - 8);
+            const top = aboveTop >= 8
+                ? aboveTop
+                : Math.round(Math.min(window.innerHeight - menuRect.height - 8, buttonRect.bottom + 8));
+            actionMenu.style.left = `${left}px`;
+            actionMenu.style.top = `${top}px`;
+        };
+
+        const showActionMenu = () => {
+            if (floatingButton.hidden) {
+                return;
+            }
+            updateMenuLabels();
+            menuOpen = true;
+            actionMenu.hidden = false;
+            positionActionMenu();
+        };
+
+        const setActiveTable = (table) => {
+            if (!(table instanceof HTMLTableElement)) {
+                clearActiveTable();
+                return;
+            }
+            if (activeTable !== table) {
+                hideActionMenu();
+            }
+            activeTable = table;
+            positionActionButton();
+        };
+
+        const ensureCaretInsideActiveTable = () => {
+            if (!(activeTable instanceof HTMLTableElement) || !activeTable.isConnected) {
+                return false;
+            }
+            const outputElement = getPreviewOutputElement();
+            if (!outputElement) {
+                return false;
+            }
+            outputElement.focus();
+            const selectionTable = getTableFromSelection();
+            if (selectionTable === activeTable) {
+                savePreviewSelectionRange();
+                return true;
+            }
+            const firstCell = activeTable.querySelector('th,td');
+            if (!(firstCell instanceof Element)) {
+                return false;
+            }
+            movePreviewCaretToCell(firstCell);
+            return true;
+        };
+
+        const applyTableActionResult = (result) => {
+            if (result && result.ok) {
+                syncEditorFromPreview(editor);
+                refreshFormatToolbarState();
+                positionActionButton();
+                if (menuOpen) {
+                    positionActionMenu();
+                }
+                return;
+            }
+            if (result && result.reason === 'min_columns') {
+                window.alert(t('tableMinColumns'));
+                return;
+            }
+            if (result && result.reason === 'no_data_rows') {
+                window.alert(t('tableNoDataRows'));
+                return;
+            }
+            window.alert(t('tableNotFound'));
+        };
+
+        output.addEventListener('mousemove', (event) => {
+            if (!previewEditMode) {
+                clearActiveTable();
+                return;
+            }
+            const table = getTableFromTarget(event.target);
+            if (table) {
+                setActiveTable(table);
+                return;
+            }
+            const selectedTable = getTableFromSelection();
+            if (selectedTable) {
+                setActiveTable(selectedTable);
+                return;
+            }
+            if (!menuOpen) {
+                clearActiveTable();
+            }
+        });
+
+        output.addEventListener('click', (event) => {
+            if (!previewEditMode) {
+                clearActiveTable();
+                return;
+            }
+            const table = getTableFromTarget(event.target);
+            if (table) {
+                setActiveTable(table);
+            }
+        });
+
+        output.addEventListener('scroll', () => {
+            if (!previewEditMode) {
+                clearActiveTable();
+                return;
+            }
+            positionActionButton();
+            positionActionMenu();
+        });
+
+        document.addEventListener('selectionchange', () => {
+            if (!previewEditMode) {
+                clearActiveTable();
+                return;
+            }
+            const table = getTableFromSelection();
+            if (table) {
+                setActiveTable(table);
+            } else if (!menuOpen) {
+                clearActiveTable();
+            }
+        });
+
+        floatingButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (menuOpen) {
+                hideActionMenu();
+                return;
+            }
+            showActionMenu();
+        });
+
+        actionMenu.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLButtonElement)) {
+                return;
+            }
+            const action = String(target.getAttribute('data-table-action') || '').trim();
+            if (!action || !(activeTable instanceof HTMLTableElement) || !activeTable.isConnected) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (action === 'delete-table') {
+                activeTable.remove();
+                hideActionMenu();
+                clearActiveTable();
+                syncEditorFromPreview(editor);
+                refreshFormatToolbarState();
+                return;
+            }
+
+            if (!ensureCaretInsideActiveTable()) {
+                window.alert(t('tableNotFound'));
+                return;
+            }
+
+            if (action === 'add-column') {
+                applyTableActionResult(modifyPreviewTableColumn('add'));
+                return;
+            }
+            if (action === 'remove-column') {
+                applyTableActionResult(modifyPreviewTableColumn('remove'));
+                return;
+            }
+            if (action === 'add-row') {
+                applyTableActionResult(modifyPreviewTableRow('add'));
+                return;
+            }
+            if (action === 'remove-row') {
+                applyTableActionResult(modifyPreviewTableRow('remove'));
+            }
+        });
+
+        document.addEventListener('pointerdown', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+            if (target.closest('.preview-table-action-button') || target.closest('.preview-table-action-menu')) {
+                return;
+            }
+            if (activeTable && target.closest('table') === activeTable) {
+                hideActionMenu();
+                return;
+            }
+            clearActiveTable();
+        });
+
+        window.addEventListener('resize', () => {
+            positionActionButton();
+            positionActionMenu();
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                hideActionMenu();
             }
         });
     };
@@ -2592,6 +3644,13 @@ ${"`"}${"`"}${"`"}
 
                 if (previewFormatType) {
                     event.preventDefault();
+                    if (previewFormatType === 'link') {
+                        const linkToolButton = document.querySelector('#link-tool-button');
+                        if (linkToolButton instanceof HTMLButtonElement) {
+                            linkToolButton.click();
+                            return;
+                        }
+                    }
                     applyPreviewFormat(previewFormatType, editor);
                     return;
                 }
@@ -2923,6 +3982,621 @@ ${"`"}${"`"}${"`"}
         editor.focus();
     };
 
+    let buildLinkHref = (target, anchor) => {
+        const cleanTarget = String(target || '').trim();
+        const cleanAnchor = String(anchor || '').trim().replace(/^#+/, '');
+        if (cleanAnchor) {
+            if (cleanTarget) {
+                const withoutAnchor = cleanTarget.replace(/#.*$/, '');
+                return `${withoutAnchor}#${cleanAnchor}`;
+            }
+            return `#${cleanAnchor}`;
+        }
+        return cleanTarget;
+    };
+
+    let splitLinkHref = (href) => {
+        const value = String(href || '').trim();
+        if (!value) {
+            return { target: '', anchor: '' };
+        }
+        if (value.startsWith('#')) {
+            return {
+                target: '',
+                anchor: value.slice(1)
+            };
+        }
+        const hashIndex = value.lastIndexOf('#');
+        if (hashIndex <= 0) {
+            return { target: value, anchor: '' };
+        }
+        return {
+            target: value.slice(0, hashIndex),
+            anchor: value.slice(hashIndex + 1)
+        };
+    };
+
+    let applyLinkFormatWithValues = (editor, { label, href, replaceRange = null }) => {
+        const safeLabel = String(label || '').trim() || 'link text';
+        const safeHref = String(href || '').trim();
+        const markdownHref = safeHref.replace(/\s/g, '%20');
+        const snippet = `[${safeLabel}](${markdownHref})`;
+        const urlStart = safeLabel.length + 3;
+        const urlEnd = urlStart + markdownHref.length;
+        if (replaceRange) {
+            replaceMarkdownRangeWithSnippet(editor, replaceRange, snippet, { start: urlStart, end: urlEnd });
+            return;
+        }
+        insertMarkdownSnippet(editor, snippet, { start: urlStart, end: urlEnd });
+    };
+
+    let applyImageFormatWithValues = (editor, { alt, src, title }) => {
+        const safeAlt = String(alt || '').trim() || 'image';
+        const safeSrc = String(src || '').trim().replace(/\s/g, '%20');
+        const safeTitle = String(title || '').trim().replace(/"/g, '\\"');
+        const titlePart = safeTitle ? ` "${safeTitle}"` : '';
+        const snippet = `![${safeAlt}](${safeSrc}${titlePart})`;
+        const srcStart = safeAlt.length + 4;
+        const srcEnd = srcStart + safeSrc.length;
+        insertMarkdownSnippet(editor, snippet, { start: srcStart, end: srcEnd });
+    };
+
+    let parseIntegerInput = (value, min, max, fallback) => {
+        const parsed = Number.parseInt(String(value), 10);
+        if (!Number.isFinite(parsed)) {
+            return fallback;
+        }
+        return Math.min(max, Math.max(min, parsed));
+    };
+
+    let getTableSeparatorCell = (alignment) => {
+        if (alignment === 'center') {
+            return ':---:';
+        }
+        if (alignment === 'right') {
+            return '---:';
+        }
+        return ':---';
+    };
+
+    let buildMarkdownTable = ({ columns, rows, alignment, includeHeader, headerPrefix }) => {
+        const safeColumns = parseIntegerInput(columns, 1, 12, 3);
+        const safeRows = parseIntegerInput(rows, 1, 50, 3);
+        const safePrefix = String(headerPrefix || 'Column').trim() || 'Column';
+        const headerCells = includeHeader
+            ? Array.from({ length: safeColumns }, (_, index) => `${safePrefix} ${index + 1}`)
+            : new Array(safeColumns).fill('');
+        const separatorCells = new Array(safeColumns).fill(getTableSeparatorCell(alignment));
+        const bodyRows = Array.from({ length: safeRows }, () => new Array(safeColumns).fill(''));
+
+        const asRow = (cells) => `| ${cells.join(' | ')} |`;
+        const lines = [asRow(headerCells), asRow(separatorCells)];
+        bodyRows.forEach((cells) => {
+            lines.push(asRow(cells));
+        });
+        return lines.join('\n');
+    };
+
+    let insertMarkdownSnippet = (editor, snippet, selectionInSnippet = null) => {
+        const model = editor.getModel();
+        const selection = editor.getSelection();
+        if (!model || !selection || typeof snippet !== 'string') {
+            return;
+        }
+
+        const startOffset = model.getOffsetAt({
+            lineNumber: selection.startLineNumber,
+            column: selection.startColumn
+        });
+        editor.executeEdits('format-toolbar', [{
+            range: selection,
+            text: snippet,
+            forceMoveMarkers: true
+        }]);
+
+        if (selectionInSnippet && Number.isFinite(selectionInSnippet.start) && Number.isFinite(selectionInSnippet.end)) {
+            const safeStart = Math.max(0, Math.min(snippet.length, selectionInSnippet.start));
+            const safeEnd = Math.max(safeStart, Math.min(snippet.length, selectionInSnippet.end));
+            const selectionStart = model.getPositionAt(startOffset + safeStart);
+            const selectionEnd = model.getPositionAt(startOffset + safeEnd);
+            editor.setSelection(new monaco.Selection(
+                selectionStart.lineNumber,
+                selectionStart.column,
+                selectionEnd.lineNumber,
+                selectionEnd.column
+            ));
+            editor.focus();
+            return;
+        }
+
+        const caretOffset = startOffset + snippet.length;
+        const caretPosition = model.getPositionAt(caretOffset);
+        editor.setSelection(new monaco.Selection(
+            caretPosition.lineNumber,
+            caretPosition.column,
+            caretPosition.lineNumber,
+            caretPosition.column
+        ));
+        editor.focus();
+    };
+
+    let replaceMarkdownRangeWithSnippet = (editor, range, snippet, selectionInSnippet = null) => {
+        const model = editor.getModel();
+        if (!model || !range || typeof snippet !== 'string') {
+            return;
+        }
+
+        const startOffset = model.getOffsetAt({
+            lineNumber: range.startLineNumber,
+            column: range.startColumn
+        });
+        editor.executeEdits('format-toolbar', [{
+            range,
+            text: snippet,
+            forceMoveMarkers: true
+        }]);
+
+        if (selectionInSnippet && Number.isFinite(selectionInSnippet.start) && Number.isFinite(selectionInSnippet.end)) {
+            const safeStart = Math.max(0, Math.min(snippet.length, selectionInSnippet.start));
+            const safeEnd = Math.max(safeStart, Math.min(snippet.length, selectionInSnippet.end));
+            const selectionStart = model.getPositionAt(startOffset + safeStart);
+            const selectionEnd = model.getPositionAt(startOffset + safeEnd);
+            editor.setSelection(new monaco.Selection(
+                selectionStart.lineNumber,
+                selectionStart.column,
+                selectionEnd.lineNumber,
+                selectionEnd.column
+            ));
+            editor.focus();
+            return;
+        }
+
+        const caretOffset = startOffset + snippet.length;
+        const caretPosition = model.getPositionAt(caretOffset);
+        editor.setSelection(new monaco.Selection(
+            caretPosition.lineNumber,
+            caretPosition.column,
+            caretPosition.lineNumber,
+            caretPosition.column
+        ));
+        editor.focus();
+    };
+
+    let splitMarkdownTableRow = (line) => {
+        const raw = String(line || '').trim().replace(/^\|/, '').replace(/\|$/, '');
+        const cells = [];
+        let cell = '';
+        let escaped = false;
+        for (let index = 0; index < raw.length; index += 1) {
+            const char = raw[index];
+            if (escaped) {
+                cell += char;
+                escaped = false;
+                continue;
+            }
+            if (char === '\\') {
+                cell += char;
+                escaped = true;
+                continue;
+            }
+            if (char === '|') {
+                cells.push(cell.trim());
+                cell = '';
+                continue;
+            }
+            cell += char;
+        }
+        cells.push(cell.trim());
+        return cells;
+    };
+
+    let isMarkdownTableSeparatorRow = (cells) => {
+        if (!Array.isArray(cells) || cells.length === 0) {
+            return false;
+        }
+        return cells.every((cell) => /^:?-{3,}:?$/.test(String(cell || '').trim()));
+    };
+
+    let countUnescapedPipesBeforeOffset = (line, offsetExclusive) => {
+        const safeLine = String(line || '');
+        const safeOffset = Math.max(0, Math.min(safeLine.length, offsetExclusive));
+        let escaped = false;
+        let count = 0;
+        for (let index = 0; index < safeOffset; index += 1) {
+            const char = safeLine[index];
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (char === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (char === '|') {
+                count += 1;
+            }
+        }
+        return count;
+    };
+
+    let hasUnescapedPipe = (line) => countUnescapedPipesBeforeOffset(line, String(line || '').length) > 0;
+
+    let buildMarkdownTableFromRows = (rows) => {
+        const safeRows = Array.isArray(rows) ? rows : [];
+        const asRow = (cells) => `| ${cells.join(' | ')} |`;
+        return safeRows.map((cells) => asRow(cells)).join('\n');
+    };
+
+    let getCellStartColumnInRenderedRow = (cells, targetCellIndex) => {
+        const safeCells = Array.isArray(cells) ? cells : [];
+        const safeIndex = Math.max(0, Math.min(safeCells.length - 1, targetCellIndex));
+        let offset = 2;
+        for (let index = 0; index < safeIndex; index += 1) {
+            offset += String(safeCells[index] || '').length + 3;
+        }
+        return offset + 1;
+    };
+
+    let findMarkdownTableAtSelection = (editor) => {
+        const model = editor.getModel();
+        const selection = editor.getSelection();
+        if (!model || !selection) {
+            return null;
+        }
+
+        const currentLineNumber = selection.startLineNumber;
+        const getLine = (lineNumber) => model.getLineContent(lineNumber);
+        if (!hasUnescapedPipe(getLine(currentLineNumber))) {
+            return null;
+        }
+
+        let startLine = currentLineNumber;
+        while (startLine > 1 && hasUnescapedPipe(getLine(startLine - 1))) {
+            startLine -= 1;
+        }
+
+        let endLine = currentLineNumber;
+        const lineCount = model.getLineCount();
+        while (endLine < lineCount && hasUnescapedPipe(getLine(endLine + 1))) {
+            endLine += 1;
+        }
+
+        const lineEntries = [];
+        for (let line = startLine; line <= endLine; line += 1) {
+            const text = getLine(line);
+            lineEntries.push({
+                lineNumber: line,
+                text,
+                cells: splitMarkdownTableRow(text)
+            });
+        }
+
+        if (lineEntries.length < 2) {
+            return null;
+        }
+
+        const separatorRowIndex = lineEntries.findIndex((entry) => isMarkdownTableSeparatorRow(entry.cells));
+        if (separatorRowIndex < 0) {
+            return null;
+        }
+
+        const columnCount = lineEntries.reduce((max, entry) => Math.max(max, entry.cells.length), 0);
+        if (columnCount <= 0) {
+            return null;
+        }
+
+        const currentLine = getLine(currentLineNumber);
+        const cursorOffsetInLine = Math.max(0, selection.startColumn - 1);
+        const pipesBeforeCursor = countUnescapedPipesBeforeOffset(currentLine, cursorOffsetInLine);
+        const activeColumnIndex = Math.max(0, Math.min(columnCount - 1, pipesBeforeCursor - 1));
+
+        const rows = lineEntries.map((entry) => {
+            const padded = [...entry.cells];
+            while (padded.length < columnCount) {
+                padded.push('');
+            }
+            return padded;
+        });
+
+        return {
+            startLine,
+            endLine,
+            rows,
+            separatorRowIndex,
+            activeColumnIndex,
+            activeRowIndex: currentLineNumber - startLine
+        };
+    };
+
+    let modifyMarkdownTableColumn = (editor, action) => {
+        const table = findMarkdownTableAtSelection(editor);
+        if (!table) {
+            return { ok: false, reason: 'not_found' };
+        }
+
+        const model = editor.getModel();
+        if (!model) {
+            return { ok: false, reason: 'not_found' };
+        }
+
+        const { rows, separatorRowIndex, activeColumnIndex, startLine, endLine } = table;
+        const columnCount = rows[0] ? rows[0].length : 0;
+        if (action === 'remove' && columnCount <= 1) {
+            return { ok: false, reason: 'min_columns' };
+        }
+
+        const nextRows = rows.map((row, rowIndex) => {
+            const next = [...row];
+            if (action === 'add') {
+                if (rowIndex === separatorRowIndex) {
+                    const currentSeparator = String(next[activeColumnIndex] || '').trim();
+                    const separatorCell = /^:?-{3,}:?$/.test(currentSeparator) ? currentSeparator : ':---';
+                    next.splice(activeColumnIndex + 1, 0, separatorCell);
+                } else {
+                    next.splice(activeColumnIndex + 1, 0, '');
+                }
+                return next;
+            }
+            next.splice(activeColumnIndex, 1);
+            return next;
+        });
+
+        const nextTableText = buildMarkdownTableFromRows(nextRows);
+        const replaceRange = new monaco.Range(startLine, 1, endLine, model.getLineMaxColumn(endLine));
+        editor.executeEdits('format-toolbar', [{
+            range: replaceRange,
+            text: nextTableText,
+            forceMoveMarkers: true
+        }]);
+
+        const nextColumnIndex = action === 'add'
+            ? Math.min(nextRows[0].length - 1, activeColumnIndex + 1)
+            : Math.min(nextRows[0].length - 1, activeColumnIndex);
+        const anchorLine = startLine;
+        const preferredColumn = getCellStartColumnInRenderedRow(nextRows[0], nextColumnIndex);
+        const lineMaxColumn = model.getLineMaxColumn(anchorLine);
+        const safeColumn = Math.max(1, Math.min(lineMaxColumn, preferredColumn));
+        editor.setSelection(new monaco.Selection(anchorLine, safeColumn, anchorLine, safeColumn));
+        editor.focus();
+        return { ok: true };
+    };
+
+    let getPreviewSelectionTableCell = () => {
+        const output = getPreviewOutputElement();
+        const selection = window.getSelection();
+        if (!output || !selection || selection.rangeCount === 0) {
+            return null;
+        }
+        const range = selection.getRangeAt(0);
+        if (!isRangeInsideElement(range, output)) {
+            return null;
+        }
+        const containerNode = range.startContainer;
+        const element = containerNode.nodeType === Node.ELEMENT_NODE
+            ? containerNode
+            : containerNode.parentElement;
+        if (!(element instanceof Element)) {
+            return null;
+        }
+        const cell = element.closest('td,th');
+        const table = element.closest('table');
+        if (!cell || !table || !output.contains(table)) {
+            return null;
+        }
+        return {
+            cell,
+            table
+        };
+    };
+
+    let movePreviewCaretToCell = (cell) => {
+        const selection = window.getSelection();
+        if (!(cell instanceof Element) || !selection) {
+            return;
+        }
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        previewSavedRange = range.cloneRange();
+    };
+
+    let modifyPreviewTableColumn = (action) => {
+        const target = getPreviewSelectionTableCell();
+        if (!target) {
+            return { ok: false, reason: 'not_found' };
+        }
+
+        const { cell, table } = target;
+        const rows = Array.from(table.querySelectorAll('tr')).filter((row) => row.cells.length > 0);
+        if (rows.length === 0) {
+            return { ok: false, reason: 'not_found' };
+        }
+
+        const currentIndex = Math.max(0, cell.cellIndex);
+        const maxColumns = rows.reduce((max, row) => Math.max(max, row.cells.length), 0);
+        if (action === 'remove' && maxColumns <= 1) {
+            return { ok: false, reason: 'min_columns' };
+        }
+
+        if (action === 'add') {
+            rows.forEach((row) => {
+                const reference = row.cells[Math.min(currentIndex, row.cells.length - 1)] || null;
+                const parentTag = row.parentElement ? row.parentElement.tagName.toLowerCase() : '';
+                const newCell = document.createElement(parentTag === 'thead' ? 'th' : 'td');
+                newCell.textContent = '';
+                if (reference && reference.nextSibling) {
+                    row.insertBefore(newCell, reference.nextSibling);
+                    return;
+                }
+                row.appendChild(newCell);
+            });
+            const currentRow = cell.parentElement;
+            const nextCell = currentRow && currentRow.cells[Math.min(currentIndex + 1, currentRow.cells.length - 1)];
+            movePreviewCaretToCell(nextCell || cell);
+            return { ok: true };
+        }
+
+        rows.forEach((row) => {
+            if (row.cells[currentIndex]) {
+                row.deleteCell(currentIndex);
+                return;
+            }
+            if (row.cells.length > 0) {
+                row.deleteCell(row.cells.length - 1);
+            }
+        });
+        const currentRow = cell.parentElement;
+        const fallbackIndex = Math.max(0, Math.min(currentIndex, (currentRow ? currentRow.cells.length : 1) - 1));
+        const nextCell = currentRow && currentRow.cells[fallbackIndex];
+        movePreviewCaretToCell(nextCell || table.querySelector('td,th'));
+        return { ok: true };
+    };
+
+    let modifyTableColumn = (editor, action) => {
+        if (previewEditMode) {
+            const output = getPreviewOutputElement();
+            if (!output) {
+                return { ok: false, reason: 'not_found' };
+            }
+            output.focus();
+            restorePreviewSelectionRange();
+            return modifyPreviewTableColumn(action);
+        }
+        return modifyMarkdownTableColumn(editor, action);
+    };
+
+    let modifyMarkdownTableRow = (editor, action) => {
+        const table = findMarkdownTableAtSelection(editor);
+        if (!table) {
+            return { ok: false, reason: 'not_found' };
+        }
+
+        const model = editor.getModel();
+        if (!model) {
+            return { ok: false, reason: 'not_found' };
+        }
+
+        const { rows, separatorRowIndex, activeColumnIndex, activeRowIndex, startLine, endLine } = table;
+        const dataRowStartIndex = separatorRowIndex + 1;
+        const hasDataRows = rows.length > dataRowStartIndex;
+        const normalizedDataRowIndex = activeRowIndex > separatorRowIndex
+            ? activeRowIndex
+            : dataRowStartIndex;
+
+        if (action === 'remove') {
+            if (!hasDataRows) {
+                return { ok: false, reason: 'no_data_rows' };
+            }
+            const removeIndex = Math.max(dataRowStartIndex, Math.min(rows.length - 1, normalizedDataRowIndex));
+            rows.splice(removeIndex, 1);
+        } else {
+            const insertIndex = hasDataRows
+                ? Math.max(dataRowStartIndex, Math.min(rows.length, normalizedDataRowIndex + 1))
+                : rows.length;
+            const columnCount = rows[0] ? rows[0].length : 1;
+            rows.splice(insertIndex, 0, new Array(columnCount).fill(''));
+        }
+
+        const nextTableText = buildMarkdownTableFromRows(rows);
+        const replaceRange = new monaco.Range(startLine, 1, endLine, model.getLineMaxColumn(endLine));
+        editor.executeEdits('format-toolbar', [{
+            range: replaceRange,
+            text: nextTableText,
+            forceMoveMarkers: true
+        }]);
+
+        const nextDataRowIndex = rows.length > dataRowStartIndex
+            ? Math.max(dataRowStartIndex, Math.min(rows.length - 1, normalizedDataRowIndex))
+            : separatorRowIndex;
+        const anchorLine = startLine + nextDataRowIndex;
+        const preferredColumn = getCellStartColumnInRenderedRow(rows[nextDataRowIndex] || rows[0], activeColumnIndex);
+        const lineMaxColumn = model.getLineMaxColumn(anchorLine);
+        const safeColumn = Math.max(1, Math.min(lineMaxColumn, preferredColumn));
+        editor.setSelection(new monaco.Selection(anchorLine, safeColumn, anchorLine, safeColumn));
+        editor.focus();
+        return { ok: true };
+    };
+
+    let modifyPreviewTableRow = (action) => {
+        const target = getPreviewSelectionTableCell();
+        if (!target) {
+            return { ok: false, reason: 'not_found' };
+        }
+
+        const { cell, table } = target;
+        const allRows = Array.from(table.querySelectorAll('tr')).filter((row) => row.cells.length > 0);
+        if (allRows.length === 0) {
+            return { ok: false, reason: 'not_found' };
+        }
+
+        const row = cell.parentElement;
+        const tbody = table.tBodies && table.tBodies.length > 0 ? table.tBodies[0] : null;
+        const bodyRows = tbody
+            ? Array.from(tbody.rows).filter((bodyRow) => bodyRow.cells.length > 0)
+            : allRows.slice(1);
+        const columnIndex = Math.max(0, cell.cellIndex);
+
+        if (action === 'remove') {
+            if (bodyRows.length === 0) {
+                return { ok: false, reason: 'no_data_rows' };
+            }
+            const targetRow = row && bodyRows.includes(row) ? row : bodyRows[0];
+            const fallbackRow = targetRow.nextElementSibling instanceof HTMLTableRowElement
+                ? targetRow.nextElementSibling
+                : (targetRow.previousElementSibling instanceof HTMLTableRowElement ? targetRow.previousElementSibling : null);
+            targetRow.remove();
+            const nextRow = fallbackRow && fallbackRow.cells.length > 0
+                ? fallbackRow
+                : (tbody && tbody.rows.length > 0 ? tbody.rows[0] : null);
+            const nextCell = nextRow && nextRow.cells[Math.min(columnIndex, nextRow.cells.length - 1)];
+            movePreviewCaretToCell(nextCell || table.querySelector('td,th'));
+            return { ok: true };
+        }
+
+        const baseRow = row && row.cells.length > 0 ? row : (tbody && tbody.rows[0] ? tbody.rows[0] : null);
+        const referenceRow = (baseRow && (!tbody || tbody.contains(baseRow))) ? baseRow : null;
+        const columnCount = referenceRow
+            ? referenceRow.cells.length
+            : (bodyRows[0] ? bodyRows[0].cells.length : (allRows[0] ? allRows[0].cells.length : 1));
+        const newRow = document.createElement('tr');
+        for (let index = 0; index < Math.max(1, columnCount); index += 1) {
+            const newCell = document.createElement('td');
+            newCell.textContent = '';
+            newRow.appendChild(newCell);
+        }
+
+        if (tbody) {
+            if (referenceRow && referenceRow.nextSibling) {
+                tbody.insertBefore(newRow, referenceRow.nextSibling);
+            } else {
+                tbody.appendChild(newRow);
+            }
+        } else if (referenceRow && referenceRow.nextSibling) {
+            table.insertBefore(newRow, referenceRow.nextSibling);
+        } else {
+            table.appendChild(newRow);
+        }
+
+        const nextCell = newRow.cells[Math.min(columnIndex, newRow.cells.length - 1)];
+        movePreviewCaretToCell(nextCell || newRow.cells[0]);
+        return { ok: true };
+    };
+
+    let modifyTableRow = (editor, action) => {
+        if (previewEditMode) {
+            const output = getPreviewOutputElement();
+            if (!output) {
+                return { ok: false, reason: 'not_found' };
+            }
+            output.focus();
+            restorePreviewSelectionRange();
+            return modifyPreviewTableRow(action);
+        }
+        return modifyMarkdownTableRow(editor, action);
+    };
+
     let schedulePreviewSyncFromToolbar = (editor) => {
         if (previewEditSyncTimer !== null) {
             window.clearTimeout(previewEditSyncTimer);
@@ -2959,7 +4633,10 @@ ${"`"}${"`"}${"`"}
         } else if (formatType === 'ol') {
             executePreviewCommand('insertOrderedList');
         } else if (formatType === 'quote') {
-            executePreviewCommand('formatBlock', '<blockquote>');
+            const unwrapped = unwrapPreviewBlockquoteAtSelection();
+            if (!unwrapped) {
+                executePreviewCommand('formatBlock', '<blockquote>');
+            }
         } else if (formatType === 'link') {
             const url = window.prompt('URL', 'https://example.com');
             if (!url) {
@@ -3003,6 +4680,1312 @@ ${"`"}${"`"}${"`"}
             button.setAttribute('aria-pressed', 'false');
         });
 
+        const setButtonActiveState = (formatType, active) => {
+            const button = buttonByFormat.get(formatType);
+            if (!button) {
+                return;
+            }
+            button.classList.toggle('active', active === true);
+            button.setAttribute('aria-pressed', active === true ? 'true' : 'false');
+        };
+
+        const setLinkPopoverState = (open) => {
+            linkPopoverOpen = open === true;
+            if (linkTool) {
+                linkTool.classList.toggle('open', linkPopoverOpen);
+            }
+            if (linkPopover) {
+                linkPopover.setAttribute('aria-hidden', linkPopoverOpen ? 'false' : 'true');
+            }
+            const linkButton = buttonByFormat.get('link');
+            if (linkButton) {
+                linkButton.setAttribute('aria-expanded', linkPopoverOpen ? 'true' : 'false');
+            }
+        };
+
+        const setImagePopoverState = (open) => {
+            imagePopoverOpen = open === true;
+            if (imageTool) {
+                imageTool.classList.toggle('open', imagePopoverOpen);
+            }
+            if (imagePopover) {
+                imagePopover.setAttribute('aria-hidden', imagePopoverOpen ? 'false' : 'true');
+            }
+            const imageButton = buttonByFormat.get('image');
+            if (imageButton) {
+                imageButton.setAttribute('aria-expanded', imagePopoverOpen ? 'true' : 'false');
+            }
+        };
+
+        const setNotePopoverState = (open) => {
+            notePopoverOpen = open === true;
+            if (noteTool) {
+                noteTool.classList.toggle('open', notePopoverOpen);
+            }
+            if (notePopover) {
+                notePopover.setAttribute('aria-hidden', notePopoverOpen ? 'false' : 'true');
+            }
+            const noteButton = buttonByFormat.get('note');
+            if (noteButton) {
+                noteButton.setAttribute('aria-expanded', notePopoverOpen ? 'true' : 'false');
+            }
+        };
+
+        const linkTool = document.querySelector('#link-tool');
+        const linkPopover = document.querySelector('#link-popover');
+        const linkTextInput = document.querySelector('#link-text-input');
+        const linkTargetInput = document.querySelector('#link-target-input');
+        const linkBrowseButton = document.querySelector('#link-browse-button');
+        const linkAnchorSelect = document.querySelector('#link-anchor-select');
+        const linkInsertButton = document.querySelector('#link-insert-button');
+        const linkRemoveButton = document.querySelector('#link-remove-button');
+        const imageTool = document.querySelector('#image-tool');
+        const imagePopover = document.querySelector('#image-popover');
+        const imageAltInput = document.querySelector('#image-alt-input');
+        const imageSrcInput = document.querySelector('#image-src-input');
+        const imageBrowseButton = document.querySelector('#image-browse-button');
+        const imageTitleInput = document.querySelector('#image-title-input');
+        const imageInsertButton = document.querySelector('#image-insert-button');
+        const noteTool = document.querySelector('#note-tool');
+        const notePopover = document.querySelector('#note-popover');
+        const noteSearchInput = document.querySelector('#note-search-input');
+        const noteEntriesList = document.querySelector('#note-entries-list');
+        const noteNewEntryButton = document.querySelector('#note-new-entry-button');
+        const noteBindButton = document.querySelector('#note-bind-button');
+        const noteUnbindButton = document.querySelector('#note-unbind-button');
+        const noteEditorOverlay = document.querySelector('#note-editor-overlay');
+        const noteEditorModalTitle = document.querySelector('#note-editor-modal-title');
+        const noteEditorCloseButton = document.querySelector('#note-editor-close-button');
+        const noteEditorTitleInput = document.querySelector('#note-editor-title-input');
+        const noteEditorBodyInput = document.querySelector('#note-editor-body-input');
+        const noteEditorSaveButton = document.querySelector('#note-editor-save-button');
+        const noteEditorCancelButton = document.querySelector('#note-editor-cancel-button');
+        const noteEditorDeleteButton = document.querySelector('#note-editor-delete-button');
+        const tableTool = document.querySelector('#table-tool');
+        const tablePopover = document.querySelector('#table-popover');
+        const tableColumnsInput = document.querySelector('#table-columns-input');
+        const tableRowsInput = document.querySelector('#table-rows-input');
+        const tableAlignSelect = document.querySelector('#table-align-select');
+        const tableHeaderCheckbox = document.querySelector('#table-header-checkbox');
+        const tableInsertButton = document.querySelector('#table-insert-button');
+        const tableAddColumnButton = document.querySelector('#table-add-column-button');
+        const tableRemoveColumnButton = document.querySelector('#table-remove-column-button');
+        const tableAddRowButton = document.querySelector('#table-add-row-button');
+        const tableRemoveRowButton = document.querySelector('#table-remove-row-button');
+        let linkPopoverOpen = false;
+        let imagePopoverOpen = false;
+        let notePopoverOpen = false;
+        let tablePopoverOpen = false;
+        let noteEditorOpen = false;
+        let linkPopoverMode = 'insert';
+        let linkPopoverContext = null;
+        let notePopoverContext = null;
+        let selectedNoteEntryId = '';
+        let noteEditorMode = 'create';
+        let noteEditorEntryId = '';
+
+        const setTablePopoverState = (open) => {
+            tablePopoverOpen = open === true;
+            if (tableTool) {
+                tableTool.classList.toggle('open', tablePopoverOpen);
+            }
+            if (tablePopover) {
+                tablePopover.setAttribute('aria-hidden', tablePopoverOpen ? 'false' : 'true');
+            }
+            const tableButton = buttonByFormat.get('table');
+            if (tableButton) {
+                tableButton.setAttribute('aria-expanded', tablePopoverOpen ? 'true' : 'false');
+            }
+        };
+
+        const closeLinkPopover = () => {
+            linkPopoverMode = 'insert';
+            linkPopoverContext = null;
+            if (linkInsertButton) {
+                linkInsertButton.textContent = t('linkInsert');
+            }
+            if (linkRemoveButton) {
+                linkRemoveButton.hidden = true;
+            }
+            setLinkPopoverState(false);
+        };
+
+        const closeImagePopover = () => {
+            setImagePopoverState(false);
+        };
+
+        const closeNotePopover = () => {
+            notePopoverContext = null;
+            if (noteUnbindButton) {
+                noteUnbindButton.hidden = true;
+            }
+            setNotePopoverState(false);
+        };
+
+        const setNoteEditorState = (open) => {
+            noteEditorOpen = open === true;
+            if (noteEditorOverlay) {
+                noteEditorOverlay.hidden = !noteEditorOpen;
+                noteEditorOverlay.classList.toggle('open', noteEditorOpen);
+                noteEditorOverlay.setAttribute('aria-hidden', noteEditorOpen ? 'false' : 'true');
+            }
+            document.body.classList.toggle('note-editor-open', noteEditorOpen);
+        };
+
+        const refreshNoteEditorHeader = () => {
+            if (!noteEditorModalTitle) {
+                return;
+            }
+            noteEditorModalTitle.textContent = noteEditorMode === 'edit'
+                ? t('noteEditorEditTitle')
+                : t('noteEditorAddTitle');
+            noteEditorModalTitle.setAttribute('data-mode', noteEditorMode);
+        };
+
+        const closeNoteEditorModal = () => {
+            noteEditorMode = 'create';
+            noteEditorEntryId = '';
+            refreshNoteEditorHeader();
+            setNoteEditorState(false);
+        };
+
+        const closeTablePopover = () => {
+            setTablePopoverState(false);
+        };
+
+        const closeInlinePopovers = () => {
+            closeLinkPopover();
+            closeImagePopover();
+            closeNotePopover();
+            closeTablePopover();
+        };
+
+        const getSelectedTextFromCurrentContext = () => {
+            if (previewEditMode) {
+                restorePreviewSelectionRange();
+                return (window.getSelection() ? window.getSelection().toString().trim() : '');
+            }
+            const model = editor.getModel();
+            const selection = editor.getSelection();
+            if (!model || !selection) {
+                return '';
+            }
+            return model.getValueInRange(selection).trim();
+        };
+
+        const getSelectionOffsets = (model, selection) => {
+            if (!model || !selection) {
+                return null;
+            }
+            const startOffset = model.getOffsetAt({
+                lineNumber: selection.startLineNumber,
+                column: selection.startColumn
+            });
+            const endOffset = model.getOffsetAt({
+                lineNumber: selection.endLineNumber,
+                column: selection.endColumn
+            });
+            return {
+                startOffset,
+                endOffset,
+                hasSelection: startOffset !== endOffset
+            };
+        };
+
+        const findMarkdownLinkInLine = (lineText, startInLine, endInLine) => {
+            const pattern = /\[([^\]\n]*)\]\(([^)\n]*)\)/g;
+            let best = null;
+            let match = pattern.exec(lineText);
+            while (match) {
+                const matchStart = match.index;
+                const matchEnd = matchStart + match[0].length;
+                const intersects = !(endInLine <= matchStart || startInLine >= matchEnd);
+                if (intersects) {
+                    if (!best || match[0].length < best.raw.length) {
+                        best = {
+                            raw: match[0],
+                            label: match[1] || '',
+                            href: match[2] || '',
+                            startInLine: matchStart,
+                            endInLine: matchEnd
+                        };
+                    }
+                }
+                match = pattern.exec(lineText);
+            }
+            return best;
+        };
+
+        const renderNoteEntriesList = ({ selectedId = '', searchValue = '' } = {}) => {
+            if (!noteEntriesList) {
+                return;
+            }
+            const normalizedSearch = String(searchValue || '').trim().toLowerCase();
+            const preferredSelected = String(selectedId || selectedNoteEntryId || '').trim();
+            const sorted = notesArchive
+                .slice()
+                .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+            const filtered = normalizedSearch
+                ? sorted.filter((entry) => {
+                    const title = String(entry?.title || '').toLowerCase();
+                    const body = String(entry?.body || '').toLowerCase();
+                    return title.includes(normalizedSearch) || body.includes(normalizedSearch);
+                })
+                : sorted;
+
+            noteEntriesList.innerHTML = '';
+            if (filtered.length === 0) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'note-empty-state';
+                emptyState.textContent = t('noteEmpty');
+                noteEntriesList.appendChild(emptyState);
+            } else {
+                filtered.forEach((entry) => {
+                    if (!entry || !entry.id) {
+                        return;
+                    }
+
+                    const row = document.createElement('div');
+                    row.className = 'note-entry-row';
+                    row.setAttribute('data-note-id', entry.id);
+
+                    const selectButton = document.createElement('button');
+                    selectButton.type = 'button';
+                    selectButton.className = 'note-entry-item note-entry-select';
+                    selectButton.setAttribute('data-note-id', entry.id);
+                    selectButton.setAttribute('role', 'option');
+                    const title = document.createElement('span');
+                    title.className = 'note-entry-title';
+                    title.textContent = entry.title;
+                    const preview = document.createElement('span');
+                    preview.className = 'note-entry-preview';
+                    preview.textContent = entry.body;
+                    selectButton.appendChild(title);
+                    selectButton.appendChild(preview);
+
+                    const editButton = document.createElement('button');
+                    editButton.type = 'button';
+                    editButton.className = 'note-entry-edit';
+                    editButton.setAttribute('data-note-id', entry.id);
+                    editButton.setAttribute('aria-label', t('noteEdit'));
+                    editButton.setAttribute('title', t('noteEdit'));
+                    editButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.3V21h3.7l10.8-10.8-3.7-3.7L3 17.3zm17.7-10.2a1 1 0 0 0 0-1.4L18.1 3.1a1 1 0 0 0-1.4 0l-1.6 1.6 3.7 3.7 1.9-1.3z"/></svg>';
+
+                    if (entry.id === preferredSelected) {
+                        selectButton.classList.add('active');
+                        selectButton.setAttribute('aria-selected', 'true');
+                    }
+
+                    row.appendChild(selectButton);
+                    row.appendChild(editButton);
+                    noteEntriesList.appendChild(row);
+                });
+            }
+
+            if (preferredSelected && !filtered.some((entry) => entry && entry.id === preferredSelected)) {
+                selectedNoteEntryId = '';
+            } else if (preferredSelected) {
+                selectedNoteEntryId = preferredSelected;
+            }
+        };
+
+        const getSelectedNoteArchiveId = () => {
+            return String(selectedNoteEntryId || '').trim();
+        };
+
+        const getEditorNoteContext = () => {
+            const model = editor.getModel();
+            const selection = editor.getSelection();
+            if (!model || !selection) {
+                return null;
+            }
+
+            const lineNumber = selection.startLineNumber;
+            if (lineNumber !== selection.endLineNumber) {
+                return null;
+            }
+
+            const lineText = model.getLineContent(lineNumber);
+            const lineStartOffset = model.getOffsetAt({ lineNumber, column: 1 });
+            const offsets = getSelectionOffsets(model, selection);
+            if (!offsets) {
+                return null;
+            }
+            const startInLine = offsets.startOffset - lineStartOffset;
+            const endInLine = offsets.endOffset - lineStartOffset;
+            const pattern = /<span\s+class="lectr-note-ref"\s+data-lectr-note-id="([^"]+)"\s*>([\s\S]*?)<\/span>/g;
+            let match = pattern.exec(lineText);
+            while (match) {
+                const matchStart = match.index;
+                const matchEnd = matchStart + match[0].length;
+                const intersects = !(endInLine <= matchStart || startInLine >= matchEnd);
+                if (intersects) {
+                    const noteId = String(match[1] || '').trim();
+                    const label = String(match[2] || '');
+                    const range = createMonacoRangeFromOffsets(
+                        model,
+                        lineStartOffset + matchStart,
+                        lineStartOffset + matchEnd
+                    );
+                    if (!range || !noteId) {
+                        return null;
+                    }
+                    return {
+                        type: 'editor',
+                        noteId,
+                        label,
+                        range
+                    };
+                }
+                match = pattern.exec(lineText);
+            }
+            return null;
+        };
+
+        const getPreviewNoteContext = () => {
+            const contextElement = getPreviewSelectionContextElement();
+            if (!(contextElement instanceof Element)) {
+                return null;
+            }
+            const noteElement = contextElement.closest('[data-lectr-note-id]');
+            if (!noteElement) {
+                return null;
+            }
+            const noteId = String(noteElement.getAttribute('data-lectr-note-id') || '').trim();
+            if (!noteId) {
+                return null;
+            }
+            return {
+                type: 'preview',
+                noteId,
+                noteElement,
+                label: (noteElement.textContent || '').trim()
+            };
+        };
+
+        const resolveNotePopoverContext = () => {
+            if (previewEditMode) {
+                return getPreviewNoteContext();
+            }
+            return getEditorNoteContext();
+        };
+
+        const upsertNoteArchiveEntry = ({ entryId = '', title = '', body = '' }) => {
+            const safeId = String(entryId || '').trim();
+            const safeTitle = String(title || '').trim();
+            const safeBody = String(body || '').trim();
+            if (!safeTitle) {
+                window.alert(t('noteTitleRequired'));
+                return null;
+            }
+            if (!safeBody) {
+                window.alert(t('noteBodyRequired'));
+                return null;
+            }
+
+            const now = Date.now();
+            if (safeId) {
+                const index = notesArchive.findIndex((entry) => entry && entry.id === safeId);
+                if (index !== -1) {
+                    notesArchive[index] = {
+                        ...notesArchive[index],
+                        title: safeTitle,
+                        body: safeBody,
+                        updatedAt: now
+                    };
+                    saveNotesArchive();
+                    return notesArchive[index];
+                }
+            }
+
+            const newEntry = {
+                id: `note-${now.toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+                title: safeTitle,
+                body: safeBody,
+                updatedAt: now
+            };
+            notesArchive.push(newEntry);
+            saveNotesArchive();
+            return newEntry;
+        };
+
+        const applyNoteBindingToEditor = (noteId) => {
+            const model = editor.getModel();
+            const selection = editor.getSelection();
+            if (!model || !selection) {
+                return false;
+            }
+            const selectedText = model.getValueInRange(selection);
+            if (!selectedText || !selectedText.trim()) {
+                window.alert(t('noteSelectionRequired'));
+                return false;
+            }
+            if (selectedText.includes('\n')) {
+                window.alert(t('noteSelectionRequired'));
+                return false;
+            }
+
+            const escapedText = escapeHtml(selectedText);
+            const snippet = `<span class="lectr-note-ref" data-lectr-note-id="${escapeHtmlAttribute(noteId)}">${escapedText}</span>`;
+            editor.pushUndoStop();
+            editor.executeEdits('note-bind', [{
+                range: selection,
+                text: snippet,
+                forceMoveMarkers: true
+            }]);
+            editor.pushUndoStop();
+            return true;
+        };
+
+        const applyNoteBindingToPreview = (noteId) => {
+            const output = getPreviewOutputElement();
+            const selection = window.getSelection();
+            if (!output || !selection) {
+                return false;
+            }
+            restorePreviewSelectionRange();
+            if (selection.rangeCount === 0) {
+                window.alert(t('noteSelectionRequired'));
+                return false;
+            }
+            const range = selection.getRangeAt(0);
+            if (range.collapsed || !isRangeInsideElement(range, output)) {
+                window.alert(t('noteSelectionRequired'));
+                return false;
+            }
+
+            const selectedText = selection.toString();
+            if (!selectedText || !selectedText.trim()) {
+                window.alert(t('noteSelectionRequired'));
+                return false;
+            }
+
+            const noteElement = document.createElement('span');
+            noteElement.className = 'lectr-note-ref';
+            noteElement.setAttribute('data-lectr-note-id', noteId);
+            noteElement.textContent = selectedText;
+            range.deleteContents();
+            range.insertNode(noteElement);
+            updatePreviewSelectionAfterNode(noteElement);
+            return true;
+        };
+
+        const refreshLinkPopoverActions = () => {
+            if (linkInsertButton) {
+                linkInsertButton.textContent = linkPopoverMode === 'edit' ? t('linkUpdate') : t('linkInsert');
+            }
+            if (linkRemoveButton) {
+                linkRemoveButton.hidden = linkPopoverMode !== 'edit';
+            }
+        };
+
+        const createMonacoRangeFromOffsets = (model, startOffset, endOffset) => {
+            if (!model || !Number.isFinite(startOffset) || !Number.isFinite(endOffset)) {
+                return null;
+            }
+            const safeStart = Math.max(0, Math.min(startOffset, endOffset));
+            const safeEnd = Math.max(safeStart, Math.max(startOffset, endOffset));
+            const startPosition = model.getPositionAt(safeStart);
+            const endPosition = model.getPositionAt(safeEnd);
+            return new monaco.Range(
+                startPosition.lineNumber,
+                startPosition.column,
+                endPosition.lineNumber,
+                endPosition.column
+            );
+        };
+
+        const getEditorLinkContext = () => {
+            const model = editor.getModel();
+            const selection = editor.getSelection();
+            if (!model || !selection) {
+                return null;
+            }
+            const lineNumber = selection.startLineNumber;
+            if (lineNumber !== selection.endLineNumber) {
+                return null;
+            }
+            const lineText = model.getLineContent(lineNumber);
+            const lineStartOffset = model.getOffsetAt({ lineNumber, column: 1 });
+            const offsets = getSelectionOffsets(model, selection);
+            if (!offsets) {
+                return null;
+            }
+            const startInLine = offsets.startOffset - lineStartOffset;
+            const endInLine = offsets.endOffset - lineStartOffset;
+            const linkMatch = findMarkdownLinkInLine(lineText, startInLine, endInLine);
+            if (!linkMatch) {
+                return null;
+            }
+            const range = createMonacoRangeFromOffsets(
+                model,
+                lineStartOffset + linkMatch.startInLine,
+                lineStartOffset + linkMatch.endInLine
+            );
+            if (!range) {
+                return null;
+            }
+
+            return {
+                type: 'editor',
+                label: linkMatch.label,
+                href: linkMatch.href,
+                range
+            };
+        };
+
+        const getPreviewLinkContext = () => {
+            const contextElement = getPreviewSelectionContextElement();
+            if (!(contextElement instanceof Element)) {
+                return null;
+            }
+
+            const anchorElement = contextElement.closest('a[href]');
+            if (!anchorElement) {
+                return null;
+            }
+
+            return {
+                type: 'preview',
+                anchorElement,
+                label: (anchorElement.textContent || '').trim(),
+                href: String(anchorElement.getAttribute('href') || '').trim()
+            };
+        };
+
+        const resolveLinkPopoverContext = () => {
+            if (previewEditMode) {
+                return getPreviewLinkContext();
+            }
+            return getEditorLinkContext();
+        };
+
+        const parseAnchorsFromMarkdown = (content) => {
+            const raw = typeof content === 'string' ? content : '';
+            if (!raw) {
+                return [];
+            }
+
+            const lines = raw.split(/\r?\n/);
+            const anchors = [];
+            const slugCounts = new Map();
+            let inFence = false;
+
+            for (let index = 0; index < lines.length; index += 1) {
+                const line = lines[index];
+                if (/^\s*(```|~~~)/.test(line)) {
+                    inFence = !inFence;
+                    continue;
+                }
+                if (inFence) {
+                    continue;
+                }
+                const match = line.match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
+                if (!match) {
+                    continue;
+                }
+                const level = match[1].length;
+                const label = normalizeHeadingLabelText(match[2] || '');
+                if (!label) {
+                    continue;
+                }
+                const baseSlug = slugifyHeadingId(label);
+                const duplicateCount = slugCounts.get(baseSlug) || 0;
+                slugCounts.set(baseSlug, duplicateCount + 1);
+                const anchor = duplicateCount === 0 ? baseSlug : `${baseSlug}-${duplicateCount}`;
+                anchors.push({ label, anchor, level, line: index + 1 });
+            }
+
+            return anchors;
+        };
+
+        const setLinkAnchorOptions = (anchors, selectedAnchor = '') => {
+            if (!linkAnchorSelect) {
+                return;
+            }
+
+            const safeAnchors = Array.isArray(anchors)
+                ? anchors.filter((item) => item && typeof item.anchor === 'string' && item.anchor.trim())
+                : [];
+            const normalizedSelectedAnchor = String(selectedAnchor || '').trim().replace(/^#+/, '');
+            linkAnchorSelect.innerHTML = '';
+
+            const noneOption = document.createElement('option');
+            noneOption.value = '';
+            noneOption.textContent = t('linkAnchorNone');
+            linkAnchorSelect.appendChild(noneOption);
+
+            safeAnchors.forEach((item) => {
+                const option = document.createElement('option');
+                option.value = item.anchor.trim();
+                const level = Number.isFinite(item.level) ? Math.max(1, Math.min(6, item.level)) : 1;
+                const prefix = level > 1 ? `${'  '.repeat(level - 1)}- ` : '';
+                option.textContent = `${prefix}${String(item.label || item.anchor).trim()}`;
+                linkAnchorSelect.appendChild(option);
+            });
+
+            const hasSelected = normalizedSelectedAnchor
+                && safeAnchors.some((item) => item.anchor.trim() === normalizedSelectedAnchor);
+            if (normalizedSelectedAnchor && !hasSelected) {
+                const customOption = document.createElement('option');
+                customOption.value = normalizedSelectedAnchor;
+                customOption.textContent = `#${normalizedSelectedAnchor}`;
+                linkAnchorSelect.appendChild(customOption);
+            }
+
+            linkAnchorSelect.value = normalizedSelectedAnchor || '';
+            linkAnchorSelect.disabled = false;
+        };
+
+        const pickLinkFileFallback = async () => new Promise((resolve) => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.md,.markdown,.txt,text/markdown,text/plain';
+            input.addEventListener('change', async () => {
+                const file = input.files && input.files[0];
+                if (!file) {
+                    resolve({ picked: false });
+                    return;
+                }
+                const content = await file.text();
+                resolve({
+                    picked: true,
+                    linkTarget: file.name,
+                    fileName: file.name,
+                    anchors: parseAnchorsFromMarkdown(content)
+                });
+            }, { once: true });
+            input.click();
+        });
+
+        const pickImageFileFallback = async () => new Promise((resolve) => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.addEventListener('change', async () => {
+                const file = input.files && input.files[0];
+                if (!file) {
+                    resolve({ picked: false });
+                    return;
+                }
+                resolve({
+                    picked: true,
+                    linkTarget: file.name,
+                    fileName: file.name
+                });
+            }, { once: true });
+            input.click();
+        });
+
+        const updatePreviewSelectionAfterNode = (node) => {
+            const selection = window.getSelection();
+            if (!selection || !node || !node.parentNode) {
+                return;
+            }
+
+            const nextRange = document.createRange();
+            nextRange.setStartAfter(node);
+            nextRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(nextRange);
+            previewSavedRange = nextRange.cloneRange();
+        };
+
+        const insertLinkFromPopover = () => {
+            const selectedText = linkPopoverContext && typeof linkPopoverContext.label === 'string' && linkPopoverContext.label.trim()
+                ? linkPopoverContext.label.trim()
+                : getSelectedTextFromCurrentContext();
+            const label = String(linkTextInput ? linkTextInput.value : '').trim() || selectedText || t('linkDefaultText');
+            const target = String(linkTargetInput ? linkTargetInput.value : '').trim();
+            const anchor = String(linkAnchorSelect ? linkAnchorSelect.value : '').trim();
+            const href = buildLinkHref(target, anchor);
+            if (!href) {
+                window.alert(t('linkTargetRequired'));
+                return false;
+            }
+
+            if (previewEditMode) {
+                if (linkPopoverMode === 'edit'
+                    && linkPopoverContext
+                    && linkPopoverContext.type === 'preview'
+                    && linkPopoverContext.anchorElement instanceof HTMLAnchorElement
+                    && linkPopoverContext.anchorElement.isConnected) {
+                    const anchorElement = linkPopoverContext.anchorElement;
+                    anchorElement.setAttribute('href', href);
+                    anchorElement.textContent = label;
+                    updatePreviewSelectionAfterNode(anchorElement);
+                } else {
+                    restorePreviewSelectionRange();
+                    insertHtmlIntoPreviewSelection(`<a href="${escapeHtml(href)}">${escapeHtml(label)}</a>`);
+                }
+                schedulePreviewSyncFromToolbar(editor);
+            } else {
+                editor.pushUndoStop();
+                if (linkPopoverMode === 'edit'
+                    && linkPopoverContext
+                    && linkPopoverContext.type === 'editor'
+                    && linkPopoverContext.range) {
+                    applyLinkFormatWithValues(editor, { label, href, replaceRange: linkPopoverContext.range });
+                } else {
+                    applyLinkFormatWithValues(editor, { label, href });
+                }
+                editor.pushUndoStop();
+            }
+            closeLinkPopover();
+            return true;
+        };
+
+        const removeLinkFromPopover = () => {
+            if (linkPopoverMode !== 'edit' || !linkPopoverContext) {
+                closeLinkPopover();
+                return false;
+            }
+
+            const replacementText = String(linkPopoverContext.label || linkPopoverContext.href || '');
+            if (previewEditMode) {
+                if (linkPopoverContext.type !== 'preview'
+                    || !(linkPopoverContext.anchorElement instanceof HTMLAnchorElement)
+                    || !linkPopoverContext.anchorElement.isConnected) {
+                    closeLinkPopover();
+                    return false;
+                }
+                const anchorElement = linkPopoverContext.anchorElement;
+                const textNode = document.createTextNode(replacementText);
+                anchorElement.replaceWith(textNode);
+                updatePreviewSelectionAfterNode(textNode);
+                schedulePreviewSyncFromToolbar(editor);
+                closeLinkPopover();
+                return true;
+            }
+
+            if (linkPopoverContext.type !== 'editor' || !linkPopoverContext.range) {
+                closeLinkPopover();
+                return false;
+            }
+
+            editor.pushUndoStop();
+            replaceMarkdownRangeWithSnippet(editor, linkPopoverContext.range, replacementText);
+            editor.pushUndoStop();
+            closeLinkPopover();
+            return true;
+        };
+
+        const insertImageFromPopover = () => {
+            const alt = String(imageAltInput ? imageAltInput.value : '').trim() || t('imageDefaultAlt');
+            const src = String(imageSrcInput ? imageSrcInput.value : '').trim();
+            const title = String(imageTitleInput ? imageTitleInput.value : '').trim();
+            if (!src) {
+                window.alert(t('imageSourceRequired'));
+                return false;
+            }
+
+            if (previewEditMode) {
+                const titleAttribute = title ? ` title="${escapeHtml(title)}"` : '';
+                restorePreviewSelectionRange();
+                insertHtmlIntoPreviewSelection(`<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"${titleAttribute}>`);
+                schedulePreviewSyncFromToolbar(editor);
+            } else {
+                applyImageFormatWithValues(editor, { alt, src, title });
+            }
+            closeImagePopover();
+            return true;
+        };
+
+        const pickLinkFile = async () => {
+            const sourceFilePath = getActiveTab() && getActiveTab().filePath
+                ? getActiveTab().filePath
+                : null;
+
+            if (window.lectrDesktop && typeof window.lectrDesktop.pickLinkFile === 'function') {
+                try {
+                    const result = await window.lectrDesktop.pickLinkFile({ sourceFilePath });
+                    return result && typeof result === 'object' ? result : { picked: false };
+                } catch (error) {
+                    // eslint-disable-next-line no-console
+                    console.error('Failed to pick link file via desktop bridge', error);
+                    return { picked: false };
+                }
+            }
+
+            return pickLinkFileFallback();
+        };
+
+        const pickImageFile = async () => {
+            const sourceFilePath = getActiveTab() && getActiveTab().filePath
+                ? getActiveTab().filePath
+                : null;
+
+            if (window.lectrDesktop && typeof window.lectrDesktop.pickImageFile === 'function') {
+                try {
+                    const result = await window.lectrDesktop.pickImageFile({ sourceFilePath });
+                    return result && typeof result === 'object' ? result : { picked: false };
+                } catch (error) {
+                    // eslint-disable-next-line no-console
+                    console.error('Failed to pick image via desktop bridge', error);
+                    return { picked: false };
+                }
+            }
+
+            return pickImageFileFallback();
+        };
+
+        const browseLinkFile = async () => {
+            const result = await pickLinkFile();
+            if (!result || result.picked !== true) {
+                return;
+            }
+
+            if (linkTargetInput) {
+                const target = typeof result.linkTarget === 'string' && result.linkTarget.trim()
+                    ? result.linkTarget.trim()
+                    : (result.fileName || '');
+                linkTargetInput.value = target;
+            }
+            setLinkAnchorOptions(result.anchors);
+
+            if (linkAnchorSelect && Array.isArray(result.anchors) && result.anchors.length > 0) {
+                linkAnchorSelect.focus();
+            }
+        };
+
+        const browseImageFile = async () => {
+            const result = await pickImageFile();
+            if (!result || result.picked !== true) {
+                return;
+            }
+
+            if (imageSrcInput) {
+                const target = typeof result.linkTarget === 'string' && result.linkTarget.trim()
+                    ? result.linkTarget.trim()
+                    : (result.fileName || '');
+                imageSrcInput.value = target;
+                imageSrcInput.focus();
+            }
+        };
+
+        const openNoteEditorModal = ({ mode = 'create', entryId = '' } = {}) => {
+            noteEditorMode = mode === 'edit' ? 'edit' : 'create';
+            noteEditorEntryId = '';
+
+            if (noteEditorMode === 'edit') {
+                const entry = getNoteEntryById(entryId);
+                if (!entry) {
+                    return false;
+                }
+                noteEditorEntryId = entry.id;
+                if (noteEditorTitleInput) {
+                    noteEditorTitleInput.value = entry.title;
+                }
+                if (noteEditorBodyInput) {
+                    noteEditorBodyInput.value = entry.body;
+                }
+            } else {
+                const fallback = notePopoverContext && typeof notePopoverContext.label === 'string'
+                    ? notePopoverContext.label.trim()
+                    : getSelectedTextFromCurrentContext();
+                if (noteEditorTitleInput) {
+                    noteEditorTitleInput.value = fallback || '';
+                }
+                if (noteEditorBodyInput) {
+                    noteEditorBodyInput.value = '';
+                }
+            }
+
+            if (noteEditorDeleteButton) {
+                noteEditorDeleteButton.hidden = noteEditorMode !== 'edit';
+            }
+            refreshNoteEditorHeader();
+            setNoteEditorState(true);
+            window.requestAnimationFrame(() => {
+                if (noteEditorBodyInput && noteEditorMode === 'edit') {
+                    noteEditorBodyInput.focus();
+                    noteEditorBodyInput.select();
+                    return;
+                }
+                if (noteEditorTitleInput) {
+                    noteEditorTitleInput.focus();
+                    noteEditorTitleInput.select();
+                }
+            });
+            return true;
+        };
+
+        const saveNoteEntryFromModal = () => {
+            const title = noteEditorTitleInput ? noteEditorTitleInput.value : '';
+            const body = noteEditorBodyInput ? noteEditorBodyInput.value : '';
+            const savedEntry = upsertNoteArchiveEntry({
+                entryId: noteEditorMode === 'edit' ? noteEditorEntryId : '',
+                title,
+                body
+            });
+            if (!savedEntry) {
+                return null;
+            }
+
+            selectedNoteEntryId = savedEntry.id;
+            renderNoteEntriesList({
+                selectedId: savedEntry.id,
+                searchValue: noteSearchInput ? noteSearchInput.value : ''
+            });
+            const output = getPreviewOutputElement();
+            if (output) {
+                applyNoteReferenceDecorations(output);
+            }
+            hideNoteTooltip();
+            closeNoteEditorModal();
+            return savedEntry;
+        };
+
+        const deleteNoteArchiveEntry = (entryId) => {
+            const safeId = String(entryId || '').trim();
+            if (!safeId) {
+                return false;
+            }
+            if (!window.confirm(t('noteDeleteConfirm'))) {
+                return false;
+            }
+            notesArchive = notesArchive.filter((entry) => entry && entry.id !== safeId);
+            saveNotesArchive();
+            if (selectedNoteEntryId === safeId) {
+                selectedNoteEntryId = '';
+            }
+            renderNoteEntriesList({
+                selectedId: selectedNoteEntryId,
+                searchValue: noteSearchInput ? noteSearchInput.value : ''
+            });
+            const output = getPreviewOutputElement();
+            if (output) {
+                applyNoteReferenceDecorations(output);
+            }
+            hideNoteTooltip();
+            return true;
+        };
+
+        const bindNoteFromPopover = () => {
+            const entryId = getSelectedNoteArchiveId();
+            if (!entryId) {
+                window.alert(t('noteEntryMissing'));
+                return false;
+            }
+
+            let bound = false;
+            if (previewEditMode) {
+                bound = applyNoteBindingToPreview(entryId);
+                if (bound) {
+                    schedulePreviewSyncFromToolbar(editor);
+                }
+            } else {
+                bound = applyNoteBindingToEditor(entryId);
+            }
+            if (!bound) {
+                return false;
+            }
+
+            closeNotePopover();
+            return true;
+        };
+
+        const removeNoteBindingFromPopover = () => {
+            if (!notePopoverContext) {
+                closeNotePopover();
+                return false;
+            }
+
+            if (previewEditMode) {
+                if (notePopoverContext.type !== 'preview'
+                    || !(notePopoverContext.noteElement instanceof Element)
+                    || !notePopoverContext.noteElement.isConnected) {
+                    closeNotePopover();
+                    return false;
+                }
+                const noteElement = notePopoverContext.noteElement;
+                const plainText = document.createTextNode(noteElement.textContent || '');
+                noteElement.replaceWith(plainText);
+                updatePreviewSelectionAfterNode(plainText);
+                schedulePreviewSyncFromToolbar(editor);
+                closeNotePopover();
+                return true;
+            }
+
+            if (notePopoverContext.type !== 'editor' || !notePopoverContext.range) {
+                closeNotePopover();
+                return false;
+            }
+            const replacementText = String(notePopoverContext.label || '');
+            editor.pushUndoStop();
+            replaceMarkdownRangeWithSnippet(editor, notePopoverContext.range, replacementText);
+            editor.pushUndoStop();
+            closeNotePopover();
+            return true;
+        };
+
+        const openLinkPopover = () => {
+            closeOpenMenus();
+            closeImagePopover();
+            closeNotePopover();
+            closeTablePopover();
+            if (noteEditorOpen) {
+                closeNoteEditorModal();
+            }
+            linkPopoverContext = resolveLinkPopoverContext();
+            linkPopoverMode = linkPopoverContext ? 'edit' : 'insert';
+            refreshLinkPopoverActions();
+
+            const selectedText = linkPopoverContext && typeof linkPopoverContext.label === 'string'
+                ? linkPopoverContext.label.trim()
+                : getSelectedTextFromCurrentContext();
+            const href = linkPopoverContext && typeof linkPopoverContext.href === 'string'
+                ? linkPopoverContext.href.trim()
+                : t('linkDefaultTarget');
+            const hrefParts = splitLinkHref(href);
+
+            if (linkTextInput) {
+                linkTextInput.value = selectedText || t('linkDefaultText');
+            }
+            if (linkTargetInput) {
+                linkTargetInput.value = hrefParts.target || (hrefParts.anchor ? '' : href);
+            }
+            setLinkAnchorOptions([], hrefParts.anchor);
+            setLinkPopoverState(true);
+            window.requestAnimationFrame(() => {
+                if (linkTargetInput) {
+                    linkTargetInput.focus();
+                    linkTargetInput.select();
+                }
+            });
+        };
+
+        const openImagePopover = () => {
+            closeOpenMenus();
+            closeLinkPopover();
+            closeNotePopover();
+            closeTablePopover();
+            if (noteEditorOpen) {
+                closeNoteEditorModal();
+            }
+            if (imageAltInput) {
+                imageAltInput.value = t('imageDefaultAlt');
+            }
+            if (imageSrcInput) {
+                imageSrcInput.value = t('imageDefaultSource');
+            }
+            if (imageTitleInput) {
+                imageTitleInput.value = '';
+            }
+            setImagePopoverState(true);
+            window.requestAnimationFrame(() => {
+                if (imageSrcInput) {
+                    imageSrcInput.focus();
+                    imageSrcInput.select();
+                }
+            });
+        };
+
+        const openTablePopover = () => {
+            closeOpenMenus();
+            closeLinkPopover();
+            closeImagePopover();
+            closeNotePopover();
+            if (noteEditorOpen) {
+                closeNoteEditorModal();
+            }
+            setTablePopoverState(true);
+            window.requestAnimationFrame(() => {
+                if (tableColumnsInput) {
+                    tableColumnsInput.focus();
+                    tableColumnsInput.select();
+                }
+            });
+        };
+
+        const toggleTablePopover = () => {
+            if (tablePopoverOpen) {
+                closeTablePopover();
+                return;
+            }
+            openTablePopover();
+        };
+
+        const toggleLinkPopover = () => {
+            if (linkPopoverOpen) {
+                closeLinkPopover();
+                return;
+            }
+            openLinkPopover();
+        };
+
+        const toggleImagePopover = () => {
+            if (imagePopoverOpen) {
+                closeImagePopover();
+                return;
+            }
+            openImagePopover();
+        };
+
+        const openNotePopover = () => {
+            closeOpenMenus();
+            closeLinkPopover();
+            closeImagePopover();
+            closeTablePopover();
+            if (noteEditorOpen) {
+                closeNoteEditorModal();
+            }
+
+            notePopoverContext = resolveNotePopoverContext();
+            const contextEntry = notePopoverContext ? getNoteEntryById(notePopoverContext.noteId) : null;
+
+            selectedNoteEntryId = contextEntry ? contextEntry.id : '';
+            if (noteSearchInput) {
+                noteSearchInput.value = '';
+            }
+            renderNoteEntriesList({ selectedId: selectedNoteEntryId, searchValue: '' });
+            if (noteUnbindButton) {
+                noteUnbindButton.hidden = !notePopoverContext;
+            }
+
+            setNotePopoverState(true);
+            window.requestAnimationFrame(() => {
+                if (noteSearchInput) {
+                    noteSearchInput.focus();
+                    noteSearchInput.select();
+                }
+            });
+        };
+
+        const toggleNotePopover = () => {
+            if (notePopoverOpen) {
+                closeNotePopover();
+                return;
+            }
+            openNotePopover();
+        };
+
+        const insertGeneratedTable = () => {
+            const safeColumns = parseIntegerInput(tableColumnsInput ? tableColumnsInput.value : 3, 1, 12, 3);
+            const safeRows = parseIntegerInput(tableRowsInput ? tableRowsInput.value : 3, 1, 50, 3);
+            const alignment = tableAlignSelect && tableAlignSelect.value
+                ? tableAlignSelect.value
+                : 'left';
+            const includeHeader = tableHeaderCheckbox ? tableHeaderCheckbox.checked === true : true;
+            if (tableColumnsInput) {
+                tableColumnsInput.value = String(safeColumns);
+            }
+            if (tableRowsInput) {
+                tableRowsInput.value = String(safeRows);
+            }
+
+            const headerPrefix = t('tableColumnPrefix');
+            const snippet = buildMarkdownTable({
+                columns: safeColumns,
+                rows: safeRows,
+                alignment,
+                includeHeader,
+                headerPrefix
+            });
+            const initialHeaderText = `${headerPrefix} 1`;
+            const selectionInSnippet = includeHeader
+                ? { start: 2, end: 2 + initialHeaderText.length }
+                : null;
+
+            const tryInsertTableIntoPreview = () => {
+                if (!previewEditMode) {
+                    return false;
+                }
+                const output = getPreviewOutputElement();
+                if (!output) {
+                    return false;
+                }
+
+                const renderedHtml = marked.parse(snippet, {
+                    headerIds: false,
+                    mangle: false
+                });
+                const sanitizedTableHtml = sanitizeRenderedMarkdown(renderedHtml);
+                const tempContainer = document.createElement('div');
+                tempContainer.innerHTML = sanitizedTableHtml;
+                const tableElement = tempContainer.querySelector('table');
+                if (!(tableElement instanceof HTMLTableElement)) {
+                    return false;
+                }
+
+                output.focus();
+                restorePreviewSelectionRange();
+                const selection = window.getSelection();
+                if (!selection) {
+                    return false;
+                }
+                if (selection.rangeCount === 0) {
+                    const fallbackRange = document.createRange();
+                    fallbackRange.selectNodeContents(output);
+                    fallbackRange.collapse(false);
+                    selection.removeAllRanges();
+                    selection.addRange(fallbackRange);
+                    previewSavedRange = fallbackRange.cloneRange();
+                }
+
+                const selectedRange = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+                if (!selectedRange) {
+                    return false;
+                }
+                const insertionRange = selectedRange.cloneRange();
+                if (!isRangeInsideElement(insertionRange, output)) {
+                    insertionRange.selectNodeContents(output);
+                    insertionRange.collapse(false);
+                }
+
+                insertionRange.deleteContents();
+                insertionRange.insertNode(tableElement);
+                const firstCell = tableElement.querySelector('th,td');
+                movePreviewCaretToCell(firstCell || tableElement);
+                return true;
+            };
+
+            if (tryInsertTableIntoPreview()) {
+                schedulePreviewSyncFromToolbar(editor);
+                closeTablePopover();
+                return;
+            }
+
+            editor.pushUndoStop();
+            insertMarkdownSnippet(editor, snippet, selectionInSnippet);
+            editor.pushUndoStop();
+            closeTablePopover();
+        };
+
+        const applyTableColumnAction = (action) => {
+            editor.pushUndoStop();
+            const result = modifyTableColumn(editor, action);
+            editor.pushUndoStop();
+            if (!result.ok) {
+                if (result.reason === 'min_columns') {
+                    window.alert(t('tableMinColumns'));
+                    return;
+                }
+                window.alert(t('tableNotFound'));
+                return;
+            }
+            if (previewEditMode) {
+                schedulePreviewSyncFromToolbar(editor);
+            }
+        };
+
+        const applyTableRowAction = (action) => {
+            editor.pushUndoStop();
+            const result = modifyTableRow(editor, action);
+            editor.pushUndoStop();
+            if (!result.ok) {
+                if (result.reason === 'no_data_rows') {
+                    window.alert(t('tableNoDataRows'));
+                    return;
+                }
+                window.alert(t('tableNotFound'));
+                return;
+            }
+            if (previewEditMode) {
+                schedulePreviewSyncFromToolbar(editor);
+            }
+        };
+
         const handlers = {
             bold: () => applyWrapFormat(editor, '**', '**', 'bold text'),
             italic: () => applyWrapFormat(editor, '*', '*', 'italic text'),
@@ -3013,20 +5996,22 @@ ${"`"}${"`"}${"`"}
             ul: () => applyUnorderedListFormat(editor),
             ol: () => applyOrderedListFormat(editor),
             quote: () => applyQuoteFormat(editor),
-            link: () => applyLinkFormat(editor)
-        };
-
-        const setButtonActiveState = (formatType, active) => {
-            const button = buttonByFormat.get(formatType);
-            if (!button) {
-                return;
-            }
-            button.classList.toggle('active', active === true);
-            button.setAttribute('aria-pressed', active === true ? 'true' : 'false');
+            link: () => toggleLinkPopover(),
+            image: () => toggleImagePopover(),
+            table: () => toggleTablePopover(),
+            note: () => toggleNotePopover()
         };
 
         const clearButtonActiveStates = () => {
             buttonByFormat.forEach((_, formatType) => {
+                if (formatType === 'table' || formatType === 'link' || formatType === 'image' || formatType === 'note') {
+                    const isOpen = (formatType === 'table' && tablePopoverOpen)
+                        || (formatType === 'link' && linkPopoverOpen)
+                        || (formatType === 'image' && imagePopoverOpen)
+                        || (formatType === 'note' && notePopoverOpen);
+                    setButtonActiveState(formatType, isOpen);
+                    return;
+                }
                 setButtonActiveState(formatType, false);
             });
         };
@@ -3100,30 +6085,19 @@ ${"`"}${"`"}${"`"}
             if (!model || !selection) {
                 return false;
             }
-            const fullText = model.getValue();
-            const startOffset = model.getOffsetAt({
-                lineNumber: selection.startLineNumber,
-                column: selection.startColumn
-            });
-            const endOffset = model.getOffsetAt({
-                lineNumber: selection.endLineNumber,
-                column: selection.endColumn
-            });
-            const hasSelection = startOffset !== endOffset;
-            const pattern = /\[[^\]\n]+\]\([^)]+?\)/g;
-            let match = pattern.exec(fullText);
-            while (match) {
-                const linkStart = match.index;
-                const linkEnd = linkStart + match[0].length;
-                if (!hasSelection && startOffset >= linkStart && startOffset <= linkEnd) {
-                    return true;
-                }
-                if (hasSelection && startOffset >= linkStart && endOffset <= linkEnd) {
-                    return true;
-                }
-                match = pattern.exec(fullText);
+            const lineNumber = selection.startLineNumber;
+            if (lineNumber !== selection.endLineNumber) {
+                return false;
             }
-            return false;
+            const lineText = model.getLineContent(lineNumber);
+            const lineStartOffset = model.getOffsetAt({ lineNumber, column: 1 });
+            const offsets = getSelectionOffsets(model, selection);
+            if (!offsets) {
+                return false;
+            }
+            const startInLine = offsets.startOffset - lineStartOffset;
+            const endInLine = offsets.endOffset - lineStartOffset;
+            return Boolean(findMarkdownLinkInLine(lineText, startInLine, endInLine));
         };
 
         const getPreviewSelectionContextElement = () => {
@@ -3158,7 +6132,12 @@ ${"`"}${"`"}${"`"}
             const model = editor.getModel();
             const selection = editor.getSelection();
             if (!model || !selection) {
-                return {};
+                return {
+                    link: linkPopoverOpen,
+                    image: imagePopoverOpen,
+                    table: tablePopoverOpen,
+                    note: notePopoverOpen
+                };
             }
 
             return {
@@ -3171,14 +6150,22 @@ ${"`"}${"`"}${"`"}
                 ul: isLineFormatActiveInEditor(model, selection, /^\s*[-*+]\s+/),
                 ol: isLineFormatActiveInEditor(model, selection, /^\s*\d+\.\s+/),
                 quote: isLineFormatActiveInEditor(model, selection, /^(\s{0,3})>\s?/),
-                link: isLinkActiveInEditor(model, selection)
+                link: linkPopoverOpen || isLinkActiveInEditor(model, selection),
+                image: imagePopoverOpen,
+                table: tablePopoverOpen,
+                note: notePopoverOpen
             };
         };
 
         const getPreviewFormatStates = () => {
             const contextElement = getPreviewSelectionContextElement();
             if (!contextElement || !(contextElement instanceof Element)) {
-                return {};
+                return {
+                    link: linkPopoverOpen,
+                    image: imagePopoverOpen,
+                    table: tablePopoverOpen,
+                    note: notePopoverOpen
+                };
             }
             const hasClosest = (selector) => Boolean(contextElement.closest(selector));
             const inInlineCode = hasClosest('code') && !hasClosest('pre code');
@@ -3193,7 +6180,10 @@ ${"`"}${"`"}${"`"}
                 ul: hasClosest('ul'),
                 ol: hasClosest('ol'),
                 quote: hasClosest('blockquote'),
-                link: hasClosest('a[href]')
+                link: linkPopoverOpen || hasClosest('a[href]'),
+                image: imagePopoverOpen || hasClosest('img'),
+                table: tablePopoverOpen,
+                note: notePopoverOpen || hasClosest('[data-lectr-note-id]')
             };
         };
 
@@ -3231,6 +6221,320 @@ ${"`"}${"`"}${"`"}
             editor.pushUndoStop();
             scheduleFormatToolbarStateRefresh();
         };
+        refreshLinkPopoverActions();
+        refreshNoteEditorHeader();
+
+        if (tableInsertButton) {
+            tableInsertButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                insertGeneratedTable();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (linkInsertButton) {
+            linkInsertButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                insertLinkFromPopover();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (linkRemoveButton) {
+            linkRemoveButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                removeLinkFromPopover();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (linkBrowseButton) {
+            linkBrowseButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                void browseLinkFile().then(() => {
+                    scheduleFormatToolbarStateRefresh();
+                });
+            });
+        }
+
+        if (linkTargetInput) {
+            linkTargetInput.addEventListener('input', () => {
+                setLinkAnchorOptions([]);
+            });
+        }
+
+        if (noteSearchInput) {
+            noteSearchInput.addEventListener('input', () => {
+                renderNoteEntriesList({
+                    selectedId: selectedNoteEntryId,
+                    searchValue: noteSearchInput.value
+                });
+            });
+        }
+
+        if (noteEntriesList) {
+            noteEntriesList.addEventListener('click', (event) => {
+                const target = event.target;
+                if (!(target instanceof Element)) {
+                    return;
+                }
+                const editButton = target.closest('.note-entry-edit');
+                if (editButton instanceof HTMLButtonElement) {
+                    const entryId = String(editButton.getAttribute('data-note-id') || '').trim();
+                    if (!entryId) {
+                        return;
+                    }
+                    selectedNoteEntryId = entryId;
+                    renderNoteEntriesList({
+                        selectedId: selectedNoteEntryId,
+                        searchValue: noteSearchInput ? noteSearchInput.value : ''
+                    });
+                    openNoteEditorModal({ mode: 'edit', entryId });
+                    return;
+                }
+
+                const button = target.closest('.note-entry-item');
+                if (!(button instanceof HTMLButtonElement)) {
+                    return;
+                }
+                const entryId = String(button.getAttribute('data-note-id') || '').trim();
+                if (!entryId) {
+                    return;
+                }
+                selectedNoteEntryId = entryId;
+                renderNoteEntriesList({
+                    selectedId: selectedNoteEntryId,
+                    searchValue: noteSearchInput ? noteSearchInput.value : ''
+                });
+            });
+        }
+
+        if (noteNewEntryButton) {
+            noteNewEntryButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                openNoteEditorModal({ mode: 'create' });
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (noteBindButton) {
+            noteBindButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                bindNoteFromPopover();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (noteEditorSaveButton) {
+            noteEditorSaveButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                saveNoteEntryFromModal();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (noteEditorCancelButton) {
+            noteEditorCancelButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeNoteEditorModal();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (noteEditorCloseButton) {
+            noteEditorCloseButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeNoteEditorModal();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (noteEditorDeleteButton) {
+            noteEditorDeleteButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                if (!deleteNoteArchiveEntry(noteEditorEntryId)) {
+                    return;
+                }
+                closeNoteEditorModal();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (noteUnbindButton) {
+            noteUnbindButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                removeNoteBindingFromPopover();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (imageInsertButton) {
+            imageInsertButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                insertImageFromPopover();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (imageBrowseButton) {
+            imageBrowseButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                void browseImageFile().then(() => {
+                    scheduleFormatToolbarStateRefresh();
+                });
+            });
+        }
+
+        if (tableAddColumnButton) {
+            tableAddColumnButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                applyTableColumnAction('add');
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (tableRemoveColumnButton) {
+            tableRemoveColumnButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                applyTableColumnAction('remove');
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (tableAddRowButton) {
+            tableAddRowButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                applyTableRowAction('add');
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (tableRemoveRowButton) {
+            tableRemoveRowButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                applyTableRowAction('remove');
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (linkPopover) {
+            linkPopover.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter') {
+                    return;
+                }
+                if (event.target instanceof HTMLButtonElement) {
+                    return;
+                }
+                event.preventDefault();
+                insertLinkFromPopover();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (imagePopover) {
+            imagePopover.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter') {
+                    return;
+                }
+                if (event.target instanceof HTMLButtonElement) {
+                    return;
+                }
+                event.preventDefault();
+                insertImageFromPopover();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (tablePopover) {
+            tablePopover.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter') {
+                    return;
+                }
+                if (event.target instanceof HTMLButtonElement) {
+                    return;
+                }
+                event.preventDefault();
+                insertGeneratedTable();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        if (noteEditorOverlay) {
+            noteEditorOverlay.addEventListener('pointerdown', (event) => {
+                if (event.target === noteEditorOverlay) {
+                    closeNoteEditorModal();
+                    scheduleFormatToolbarStateRefresh();
+                }
+            });
+            noteEditorOverlay.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeNoteEditorModal();
+                    scheduleFormatToolbarStateRefresh();
+                    return;
+                }
+                if (event.key !== 'Enter') {
+                    return;
+                }
+                if (event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLButtonElement) {
+                    return;
+                }
+                event.preventDefault();
+                saveNoteEntryFromModal();
+                scheduleFormatToolbarStateRefresh();
+            });
+        }
+
+        document.addEventListener('pointerdown', (event) => {
+            if (noteEditorOpen) {
+                return;
+            }
+            if (!linkPopoverOpen && !imagePopoverOpen && !tablePopoverOpen && !notePopoverOpen) {
+                return;
+            }
+            const target = event.target;
+            const isElementTarget = target instanceof Element;
+            const insideLink = isElementTarget && !!target.closest('#link-tool');
+            const insideImage = isElementTarget && !!target.closest('#image-tool');
+            const insideTable = isElementTarget && !!target.closest('#table-tool');
+            const insideNote = isElementTarget && !!target.closest('#note-tool');
+            let closedAny = false;
+            if (linkPopoverOpen && !insideLink) {
+                closeLinkPopover();
+                closedAny = true;
+            }
+            if (imagePopoverOpen && !insideImage) {
+                closeImagePopover();
+                closedAny = true;
+            }
+            if (tablePopoverOpen && !insideTable) {
+                closeTablePopover();
+                closedAny = true;
+            }
+            if (notePopoverOpen && !insideNote) {
+                closeNotePopover();
+                closedAny = true;
+            }
+            if (closedAny) {
+                scheduleFormatToolbarStateRefresh();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+            if (noteEditorOpen) {
+                closeNoteEditorModal();
+                scheduleFormatToolbarStateRefresh();
+                return;
+            }
+            if (!linkPopoverOpen && !imagePopoverOpen && !tablePopoverOpen && !notePopoverOpen) {
+                return;
+            }
+            closeInlinePopovers();
+            scheduleFormatToolbarStateRefresh();
+        });
 
         toolbar.addEventListener('mousedown', (event) => {
             if (!previewEditMode) {
@@ -3254,6 +6558,12 @@ ${"`"}${"`"}${"`"}
                 return;
             }
 
+            if (formatType === 'table' || formatType === 'link' || formatType === 'image' || formatType === 'note') {
+                handlers[formatType]();
+                scheduleFormatToolbarStateRefresh();
+                return;
+            }
+
             if (previewEditMode && applyPreviewFormat(formatType, editor)) {
                 scheduleFormatToolbarStateRefresh();
                 return;
@@ -3263,7 +6573,10 @@ ${"`"}${"`"}${"`"}
 
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, () => withUndoStop(handlers.bold));
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, () => withUndoStop(handlers.italic));
-        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => withUndoStop(handlers.link));
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
+            handlers.link();
+            scheduleFormatToolbarStateRefresh();
+        });
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyX, () => withUndoStop(handlers.strikethrough));
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyC, () => withUndoStop(handlers.code));
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Digit1, () => withUndoStop(handlers.h1));
@@ -3431,6 +6744,43 @@ ${"`"}${"`"}${"`"}
         try {
             localStorage.setItem(`${localStorageNamespace}_${localStorageOnboardingKey}`, JSON.stringify(state));
         } catch (error) {
+            // ignore storage errors
+        }
+    };
+
+    let loadNotesArchive = () => {
+        try {
+            const raw = localStorage.getItem(`${localStorageNamespace}_${localStorageNotesArchiveKey}`);
+            if (!raw) {
+                return [];
+            }
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) {
+                return [];
+            }
+            return parsed.map((entry) => {
+                const id = typeof entry?.id === 'string' ? entry.id.trim() : '';
+                const title = typeof entry?.title === 'string' ? entry.title.trim() : '';
+                const body = typeof entry?.body === 'string' ? entry.body.trim() : '';
+                if (!id || !title || !body) {
+                    return null;
+                }
+                return {
+                    id,
+                    title,
+                    body,
+                    updatedAt: Number.isFinite(entry?.updatedAt) ? entry.updatedAt : Date.now()
+                };
+            }).filter(Boolean);
+        } catch (_error) {
+            return [];
+        }
+    };
+
+    let saveNotesArchive = () => {
+        try {
+            localStorage.setItem(`${localStorageNamespace}_${localStorageNotesArchiveKey}`, JSON.stringify(notesArchive));
+        } catch (_error) {
             // ignore storage errors
         }
     };
@@ -3785,8 +7135,21 @@ ${"`"}${"`"}${"`"}
         const leftPane = document.getElementById('edit');
         const rightPane = document.getElementById('preview');
         const container = document.getElementById('container');
+        if (!divider || !leftPane || !rightPane || !container) {
+            return;
+        }
 
         let isDragging = false;
+        const stopDragging = () => {
+            if (!isDragging) {
+                return;
+            }
+            isDragging = false;
+            divider.classList.remove('active');
+            divider.classList.remove('hover');
+            document.body.style.cursor = 'default';
+            document.body.style.userSelect = '';
+        };
 
         divider.addEventListener('mouseenter', () => {
             divider.classList.add('hover');
@@ -3832,12 +7195,16 @@ ${"`"}${"`"}${"`"}
         });
 
         document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                divider.classList.remove('active');
-                divider.classList.remove('hover');
-                document.body.style.cursor = 'default';
-                document.body.style.userSelect = '';
+            stopDragging();
+        });
+
+        window.addEventListener('blur', () => {
+            stopDragging();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopDragging();
             }
         });
 
@@ -3857,6 +7224,7 @@ ${"`"}${"`"}${"`"}
 
     // ----- entry point -----
     let lastContent = loadLastContent();
+    notesArchive = loadNotesArchive();
     let editor = await setupEditor();
     setupPreviewScrollSync(editor);
     setupPreviewEditSync(editor);
@@ -3923,6 +7291,8 @@ ${"`"}${"`"}${"`"}
     setupAboutDialog();
     setupOpenButton();
     setupPreviewLinkNavigation();
+    setupPreviewNoteInteractions();
+    setupPreviewTableActions(editor);
     setupSaveButton(editor);
     setupSaveAsButton(editor);
     setupResetButton();
@@ -3957,6 +7327,7 @@ ${"`"}${"`"}${"`"}
             window.clearTimeout(persistTabsTimer);
             persistTabsTimer = null;
         }
+        hideNoteTooltip();
         saveTabsState();
     });
 };

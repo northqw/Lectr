@@ -20,6 +20,7 @@
   "build": {
     "appId": "com.lectr.app",
     "productName": "Lectr",
+    "icon": "public/icon.png",
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -30,17 +31,24 @@
       "output": "release"
     },
     "linux": {
+      "icon": "public/icon.png",
       "target": [
         "AppImage"
       ],
       "category": "Utility"
     },
     "win": {
+      "icon": "public/icon.ico",
       "target": [
         "nsis"
       ]
     },
+    "nsis": {
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico"
+    },
     "mac": {
+      "icon": "public/icon.png",
       "target": [
         "dmg",
         "zip"
