@@ -31,6 +31,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate app icons configuration
+        shell: bash
+        run: |
+          node -e "
+            const fs = require('node:fs');
+            const pkg = require('./package.json');
+            const build = pkg.build || {};
+            const requiredPaths = [
+              build.icon,
+              build?.linux?.icon,
+              build?.win?.icon,
+              build?.mac?.icon,
+              build?.nsis?.installerIcon,
+              build?.nsis?.uninstallerIcon
+            ];
+            for (const value of requiredPaths) {
+              if (!value || typeof value !== 'string') {
+                console.error('Missing icon config in package.json build section');
+                process.exit(1);
+              }
+              if (!fs.existsSync(value)) {
+                console.error('Icon file not found:', value);
+                process.exit(1);
+              }
+            }
+          "
+
       - name: Build renderer
         run: npm run build
 
