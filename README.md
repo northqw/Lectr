@@ -1,4 +1,4 @@
-# ![Lectr logo.](public/favicon.ico "Lectr logo.")
+# ![Lectr logo.](public/favicon.png "Lectr logo.")
 
 RU | [EN](#lectr-en)
 
