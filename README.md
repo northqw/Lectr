@@ -1,6 +1,4 @@
-# ![Lectr logo.](public/image/lectr-logo.svg "Lectr logo.")
-
-
+# ![Lectr logo.](public/favicon.ico "Lectr logo.")
 
 RU | [EN](#lectr-en)
 
@@ -19,6 +17,11 @@ Lectr — Markdown-редактор с live preview и desktop-режимом н
 - Открытие/сохранение/Save As
 - Экспорт в PDF
 - Переключение темы, локализация (RU/EN), масштаб интерфейса
+- **Новая фича!** Заметки\термины с попапом
+
+  | Заметки\термины с попапом |
+  |---|
+  | ![Terms/notes with popup feature](docs/screenshots/term-notes-feature.png) |
 
 ### Требования
 
@@ -79,6 +82,11 @@ Lectr is a Markdown editor with live preview and Electron desktop packaging.
 - Open/Save/Save As
 - PDF export
 - Theme switch, localization (RU/EN), UI scaling
+- Terms/notes with popup feature
+
+  | Terms/notes with popup feature |
+  |---|
+  | ![Terms/notes with popup feature](docs/screenshots/term-notes-feature.png) |
 
 ### Requirements
 
